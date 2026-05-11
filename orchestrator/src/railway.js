@@ -80,25 +80,33 @@ class RailwayClient {
 
   /**
    * Update environment variables for a service
-   * @param {string} projectId - Railway project ID
+   * @param {string} projectId - Railway project ID (actually environmentId in Railway v2 API)
    * @param {string} serviceId - Railway service ID
-   * @param {Object} variables - Environment variables
+   * @param {Object} variables - Environment variables as key-value pairs
    */
   async updateEnvironmentVariables(projectId, serviceId, variables) {
+    // Railway API v2 requires setting variables individually
+    // The variableCollectionUpsert mutation requires proper permissions
     const mutation = `
-      mutation VariableCollectionUpsert($input: VariableCollectionUpsertInput!) {
-        variableCollectionUpsert(input: $input)
+      mutation VariableUpsert($input: VariableUpsertInput!) {
+        variableUpsert(input: $input)
       }
     `;
 
-    const input = {
-      projectId: projectId,
-      environmentId: projectId,
-      serviceId: serviceId,
-      variables: variables
-    };
+    // Set each variable individually
+    for (const [key, value] of Object.entries(variables)) {
+      const input = {
+        environmentId: projectId,
+        serviceId: serviceId,
+        name: key,
+        value: value
+      };
 
-    await this.query(mutation, { input });
+      await this.query(mutation, { input });
+      
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
   }
 
   /**
