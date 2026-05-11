@@ -1,0 +1,18 @@
+{
+  "name": "Example Stress Test",
+  "totalUsers": 20,
+  "usersPerContainer": 5,
+  "testFile": "complete-example.spec.js",
+  "railway": {
+    "projectId": "${RAILWAY_PROJECT_ID}",
+    "serviceId": "${RAILWAY_SERVICE_ID}",
+    "apiToken": "${RAILWAY_API_TOKEN}"
+  },
+  "storage": {
+    "endpoint": "${S3_ENDPOINT}",
+    "accessKey": "${S3_ACCESS_KEY}",
+    "secretKey": "${S3_SECRET_KEY}",
+    "bucket": "${S3_BUCKET}",
+    "region": "${S3_REGION}"
+  }
+}

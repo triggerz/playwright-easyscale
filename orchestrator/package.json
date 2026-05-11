@@ -4,8 +4,8 @@
   "description": "Orchestrator for distributed Playwright testing on Railway",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js --config=configs/example.json",
-    "dev": "node src/index.js --config=configs/example.json --dry-run"
+    "start": "node src/index.js --config=./configs/example.json",
+    "dev": "node src/index.js --config=./configs/example.json --dry-run"
   },
   "keywords": [
     "playwright",
