@@ -12,12 +12,44 @@ const path = require('path');
  * @returns {Object} Validated configuration
  */
 function loadConfig(configPath) {
-  // Resolve path relative to project root (parent of orchestrator)
-  const resolvedPath = path.isAbsolute(configPath) 
-    ? configPath 
-    : path.resolve(__dirname, '../../', configPath);
+  // Try multiple resolution strategies for Railway deployment
+  let resolvedPath;
+  
+  if (path.isAbsolute(configPath)) {
+    resolvedPath = configPath;
+  } else {
+    // Try relative to project root first (for monorepo on Railway)
+    resolvedPath = path.resolve(__dirname, '../../', configPath);
+    
+    // If not found, try relative to current working directory
+    if (!fs.existsSync(resolvedPath)) {
+      resolvedPath = path.resolve(process.cwd(), configPath);
+    }
+    
+    // If still not found, try relative to orchestrator directory
+    if (!fs.existsSync(resolvedPath)) {
+      resolvedPath = path.resolve(__dirname, '../', configPath);
+    }
+  }
+  
+  console.log(`[DEBUG] Config path resolution:`);
+  console.log(`  - Input: ${configPath}`);
+  console.log(`  - __dirname: ${__dirname}`);
+  console.log(`  - process.cwd(): ${process.cwd()}`);
+  console.log(`  - Resolved to: ${resolvedPath}`);
+  console.log(`  - Exists: ${fs.existsSync(resolvedPath)}`);
   
   if (!fs.existsSync(resolvedPath)) {
+    // List what files ARE available
+    const cwd = process.cwd();
+    console.log(`\n[DEBUG] Files in current directory (${cwd}):`);
+    try {
+      const files = fs.readdirSync(cwd);
+      files.forEach(f => console.log(`  - ${f}`));
+    } catch (e) {
+      console.log(`  Error listing: ${e.message}`);
+    }
+    
     throw new Error(`Configuration file not found: ${configPath} (resolved to: ${resolvedPath})`);
   }
 
