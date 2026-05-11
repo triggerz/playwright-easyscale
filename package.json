@@ -1,0 +1,32 @@
+{
+  "name": "playwright-easyscale",
+  "version": "1.0.0",
+  "description": "A distributed browser testing framework for running large-scale Playwright tests across multiple Railway containers",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test command specified\" && exit 1"
+  },
+  "keywords": [
+    "playwright",
+    "testing",
+    "distributed",
+    "scale",
+    "railway",
+    "stress-test",
+    "load-test",
+    "browser-automation"
+  ],
+  "author": "CultureDrivers",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/triggerz/playwright-easyscale.git"
+  },
+  "bugs": {
+    "url": "https://github.com/triggerz/playwright-easyscale/issues"
+  },
+  "homepage": "https://github.com/triggerz/playwright-easyscale#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

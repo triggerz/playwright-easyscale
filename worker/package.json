@@ -1,0 +1,25 @@
+{
+  "name": "playwright-easyscale-worker",
+  "version": "1.0.0",
+  "description": "Worker container for distributed Playwright testing",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test && node upload-results.js",
+    "test:headed": "playwright test --headed",
+    "upload": "node upload-results.js"
+  },
+  "keywords": [
+    "playwright",
+    "worker",
+    "distributed-testing"
+  ],
+  "author": "CultureDrivers",
+  "license": "MIT",
+  "dependencies": {
+    "@playwright/test": "^1.40.0",
+    "@aws-sdk/client-s3": "^3.450.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
