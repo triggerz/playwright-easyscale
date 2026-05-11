@@ -45,33 +45,20 @@ function calculateDistribution(totalUsers, usersPerContainer) {
  */
 function generateContainerEnv(container, config, runId) {
   const env = {
-    // User range for this container
+    // Core distribution variables (required by framework)
     USER_RANGE_START: container.startUser.toString(),
     USER_RANGE_END: container.endUser.toString(),
-    SHARD_INDEX: container.shardIndex.toString(),
-    SHARD_TOTAL: container.shardTotal.toString(),
     
     // Run identification
     RUN_ID: runId,
     
-    // Storage configuration
+    // Storage configuration (for result uploads)
     STORAGE_ENDPOINT: config.storage.endpoint,
     STORAGE_ACCESS_KEY: config.storage.accessKey,
     STORAGE_SECRET_KEY: config.storage.secretKey,
     STORAGE_BUCKET: config.storage.bucket,
-    STORAGE_REGION: config.storage.region || 'auto',
-    
-    // Test options
-    HEADLESS: config.options.headless.toString(),
-    TIMEOUT: config.options.timeout.toString(),
-    RETRIES: config.options.retries.toString(),
-    MAX_CONCURRENCY: config.options.maxConcurrency.toString()
+    STORAGE_REGION: config.storage.region || 'auto'
   };
-
-  // Add custom environment variables from config
-  if (config.environment) {
-    Object.assign(env, config.environment);
-  }
 
   return env;
 }

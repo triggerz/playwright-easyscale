@@ -12,6 +12,7 @@ const { loadConfig } = require('./config');
 const { calculateDistribution, generateContainerEnv, displayDistributionPlan } = require('./distributor');
 const RailwayClient = require('./railway');
 const Logger = require('./logger');
+const { ensureStorageReady } = require('./storage');
 const crypto = require('crypto');
 
 program
@@ -65,6 +66,17 @@ program
         console.log(chalk.yellow('\n✓ Dry run complete - no containers deployed\n'));
         logger.info('Dry run completed');
         return;
+      }
+
+      // Ensure storage is ready
+      const storageSpinner = ora('Checking storage...').start();
+      try {
+        await ensureStorageReady(config.storage);
+        storageSpinner.succeed('Storage ready');
+        logger.info('Storage verified');
+      } catch (error) {
+        storageSpinner.fail('Storage check failed');
+        throw error;
       }
 
       // Confirm deployment
