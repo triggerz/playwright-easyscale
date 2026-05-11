@@ -12,11 +12,16 @@ const path = require('path');
  * @returns {Object} Validated configuration
  */
 function loadConfig(configPath) {
-  if (!fs.existsSync(configPath)) {
-    throw new Error(`Configuration file not found: ${configPath}`);
+  // Resolve path relative to project root (parent of orchestrator)
+  const resolvedPath = path.isAbsolute(configPath) 
+    ? configPath 
+    : path.resolve(__dirname, '../../', configPath);
+  
+  if (!fs.existsSync(resolvedPath)) {
+    throw new Error(`Configuration file not found: ${configPath} (resolved to: ${resolvedPath})`);
   }
 
-  const configContent = fs.readFileSync(configPath, 'utf-8');
+  const configContent = fs.readFileSync(resolvedPath, 'utf-8');
   let config;
 
   try {
