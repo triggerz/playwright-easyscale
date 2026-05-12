@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test App - Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard-box">
+            <header class="dashboard-header">
+                <h1>Dashboard</h1>
+                <button id="logoutBtn" class="btn-secondary">Logout</button>
+            </header>
+            
+            <div class="welcome-message">
+                <h2>Welcome, <span id="userEmail">User</span>!</h2>
+                <p>You have successfully logged in to the test application.</p>
+            </div>
+            
+            <div class="dashboard-content">
+                <div class="card">
+                    <h3>Test Information</h3>
+                    <p>This is a simple dashboard page for testing purposes.</p>
+                    <p>Session ID: <code id="sessionId"></code></p>
+                    <p>Login Time: <code id="loginTime"></code></p>
+                </div>
+                
+                <div class="card">
+                    <h3>Actions</h3>
+                    <button class="btn-primary" onclick="showAlert()">Test Action</button>
+                    <p class="action-result" id="actionResult"></p>
+                </div>
+                
+                <div class="card">
+                    <h3>About This App</h3>
+                    <p>This is a static test application designed for Playwright EasyScale distributed testing.</p>
+                    <p>It simulates a basic login/dashboard flow without requiring a backend.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>

@@ -134,6 +134,11 @@ playwright-easyscale/
 │   ├── playwright.config.js
 │   └── package.json
 │
+├── test-app/             # Demo app for example tests (optional)
+│   ├── index.html       # Simple login/dashboard app
+│   ├── Dockerfile       # For Railway deployment
+│   └── README.md        # Deployment instructions
+│
 ├── configs/              # Test configurations
 │   └── example.json     # 👈 Copy and customize this!
 │

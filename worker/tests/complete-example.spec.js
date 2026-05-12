@@ -23,9 +23,11 @@ const { test, expect } = require('@playwright/test');
 // ============================================================================
 
 const CONFIG = {
-  // Application URLs
-  loginUrl: 'https://example.com/login',
-  dashboardUrl: 'https://example.com/dashboard',
+  // Application URLs - Using Railway test-app deployment
+  // For local testing: Use http://localhost:8080
+  // For Railway: Deploy test-app and use its public URL
+  loginUrl: process.env.TEST_APP_URL || 'https://test-app-production.up.railway.app',
+  dashboardUrl: process.env.TEST_APP_URL ? `${process.env.TEST_APP_URL}/dashboard.html` : 'https://test-app-production.up.railway.app/dashboard.html',
   
   // Test credentials (in production, use proper secret management)
   password: 'test-password-123',

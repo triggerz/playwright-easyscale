@@ -8,8 +8,12 @@ const { test, expect } = require('@playwright/test');
 
 const userRangeStart = parseInt(process.env.USER_RANGE_START || '1');
 const userRangeEnd = parseInt(process.env.USER_RANGE_END || '1');
-const loginUrl = process.env.LOGIN_URL || 'https://example.com';
-const password = process.env.PASSWORD || 'password123';
+
+// Hardcoded test app URL - update this to your deployed test-app URL
+// For local testing: http://localhost:8080
+// For Railway: https://your-test-app.up.railway.app
+const loginUrl = process.env.TEST_APP_URL || 'https://test-app-production.up.railway.app';
+const password = 'password123';
 
 console.log(`Running tests for users ${userRangeStart} to ${userRangeEnd}`);
 
