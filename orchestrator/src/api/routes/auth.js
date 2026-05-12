@@ -13,6 +13,11 @@ router.post('/login', (req, res) => {
   const { passphrase } = req.body;
   const secret = process.env.AUTH_SECRET;
 
+  console.log('🔐 Login attempt:');
+  console.log('   Received passphrase:', passphrase);
+  console.log('   Expected secret:', secret);
+  console.log('   Match:', passphrase === secret);
+
   if (!secret) {
     return res.status(500).json({
       error: 'Server configuration error',
