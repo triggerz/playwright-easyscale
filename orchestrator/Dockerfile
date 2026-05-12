@@ -15,6 +15,9 @@ RUN npm install --production
 # Copy orchestrator source code
 COPY orchestrator/src ./src
 
+# Copy worker tests so orchestrator can scan them
+COPY worker/tests /app/worker/tests
+
 # Expose port
 EXPOSE 3000
 

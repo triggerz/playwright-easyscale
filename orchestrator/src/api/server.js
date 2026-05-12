@@ -28,11 +28,6 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
-
-// Log CORS config after middleware is set up
-console.log('🔒 CORS Configuration:');
-console.log('   Allowed origin:', allowedOrigin);
-console.log('   WEB_UI_URL env var:', process.env.WEB_UI_URL);
 app.use(express.json());
 
 // Request logging
