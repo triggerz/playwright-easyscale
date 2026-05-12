@@ -87,8 +87,9 @@ class RailwayClient {
   async updateEnvironmentVariables(environmentId, serviceId, variables) {
     // Railway API v2 requires setting variables individually
     const mutation = `
-      mutation VariableUpsert($environmentId: String!, $serviceId: String!, $name: String!, $value: String!) {
+      mutation VariableUpsert($environmentId: String!, $projectId: String!, $serviceId: String!, $name: String!, $value: String!) {
         variableUpsert(input: {
+          projectId: $projectId
           environmentId: $environmentId
           serviceId: $serviceId
           name: $name
@@ -97,11 +98,18 @@ class RailwayClient {
       }
     `;
 
+    // Get projectId from environment
+    const projectId = process.env.RAILWAY_PROJECT_ID;
+    if (!projectId) {
+      throw new Error('RAILWAY_PROJECT_ID environment variable is required');
+    }
+
     // Set each variable individually
     for (const [key, value] of Object.entries(variables)) {
       try {
         console.log(`Setting variable ${key} for service ${serviceId} in environment ${environmentId}`);
         await this.query(mutation, {
+          projectId: projectId,
           environmentId: environmentId,
           serviceId: serviceId,
           name: key,
