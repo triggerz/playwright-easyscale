@@ -11,14 +11,8 @@ RUN npm install
 # Copy source code
 COPY web-ui/ .
 
-# Build the app
-RUN npm run build
-
-# Install serve to run the built app
-RUN npm install -g serve
-
 # Expose port
 EXPOSE 5173
 
-# Start the app
-CMD ["serve", "-s", "dist", "-l", "5173"]
+# Run in dev mode (reads env vars at runtime, just like orchestrator)
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
