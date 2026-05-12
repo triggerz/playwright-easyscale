@@ -6,10 +6,13 @@ export default defineConfig({
   server: {
     port: 5173,
     host: '0.0.0.0',
-    allowedHosts: ['all'],
+    allowedHosts: [
+      'localhost',
+      ...(process.env.VITE_PUBLIC_URL ? [new URL(process.env.VITE_PUBLIC_URL).hostname] : [])
+    ],
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:3000',
+        target: process.env.ORCHESTRATOR_URL || 'http://localhost:3000',
         changeOrigin: true,
         rewrite: (path) => path
       }
