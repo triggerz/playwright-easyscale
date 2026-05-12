@@ -38,7 +38,7 @@ router.post('/', async (req, res) => {
     // Deploy containers (async, don't wait)
     const railwayConfig = {
       apiToken: process.env.RAILWAY_API_TOKEN,
-      projectId: process.env.RAILWAY_PROJECT_ID,
+      environmentId: process.env.RAILWAY_ENVIRONMENT_ID,
       serviceId: process.env.RAILWAY_SERVICE_ID,
       storage: {
         endpoint: process.env.S3_ENDPOINT,

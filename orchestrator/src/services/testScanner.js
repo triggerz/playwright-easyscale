@@ -66,7 +66,7 @@ class TestScanner {
    */
   parseMetadataComment(content) {
     // Look for @test-metadata comment block
-    const metadataRegex = /\/\*\*[\s\S]*?@test-metadata\s*\n\s*\*\s*(\{[\s\S]*?\})\s*\n[\s\S]*?\*\//;
+    const metadataRegex = /\/\*\*[\s\S]*?@test-metadata\s*\n([\s\S]*?)\*\//;
     const match = content.match(metadataRegex);
 
     if (!match) {
@@ -74,15 +74,27 @@ class TestScanner {
     }
 
     try {
+      // Extract the content between @test-metadata and */
+      const rawContent = match[1];
+      
       // Clean up the JSON (remove leading * from each line)
-      const jsonStr = match[1]
+      const jsonStr = rawContent
         .split('\n')
-        .map(line => line.replace(/^\s*\*\s?/, ''))
+        .map(line => line.replace(/^\s*\*\s?/, '').trim())
+        .filter(line => line.length > 0)
         .join('\n');
 
-      return JSON.parse(jsonStr);
+      // Additional validation: ensure it starts with { and ends with }
+      if (!jsonStr.startsWith('{') || !jsonStr.endsWith('}')) {
+        console.error('Metadata does not appear to be valid JSON object');
+        return null;
+      }
+
+      const parsed = JSON.parse(jsonStr);
+      return parsed;
     } catch (error) {
       console.error('Error parsing test metadata JSON:', error);
+      console.error('Raw match:', match[0].substring(0, 200) + '...');
       return null;
     }
   }

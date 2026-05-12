@@ -107,7 +107,7 @@ class RunManager {
 
         // Deploy to Railway
         const deployment = await railway.deployService(
-          railwayConfig.projectId,
+          railwayConfig.environmentId,
           railwayConfig.serviceId,
           env
         );

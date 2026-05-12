@@ -82,7 +82,7 @@ async function start() {
       console.log(`\n   Environment:`);
       console.log(`   - AUTH_SECRET: ${process.env.AUTH_SECRET ? '✓ Set' : '✗ Not set'}`);
       console.log(`   - S3_BUCKET: ${process.env.S3_BUCKET ? '✓ Set' : '✗ Not set'}`);
-      console.log(`   - RAILWAY_PROJECT_ID: ${process.env.RAILWAY_PROJECT_ID ? '✓ Set' : '✗ Not set'}`);
+      console.log(`   - RAILWAY_ENVIRONMENT_ID: ${process.env.RAILWAY_ENVIRONMENT_ID ? '✓ Set' : '✗ Not set'}`);
       console.log(`   - RAILWAY_SERVICE_ID: ${process.env.RAILWAY_SERVICE_ID ? '✓ Set' : '✗ Not set'}`);
       console.log(`\n   Ready to accept requests!\n`);
     });
