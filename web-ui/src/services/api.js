@@ -4,12 +4,7 @@
 
 class ApiService {
   constructor() {
-    const baseUrl = import.meta.env.ORCHESTRATOR_URL || 'http://localhost:3000'
-    console.log('🔍 API Service Debug:')
-    console.log('  - import.meta.env.ORCHESTRATOR_URL:', import.meta.env.ORCHESTRATOR_URL)
-    console.log('  - All import.meta.env:', import.meta.env)
-    console.log('  - Resolved baseUrl:', baseUrl)
-    console.log('  - Final API baseUrl:', `${baseUrl}/api`)
+    const baseUrl = import.meta.env.VITE_ORCHESTRATOR_URL || 'http://localhost:3000'
     this.baseUrl = `${baseUrl}/api`
     this.token = null
   }

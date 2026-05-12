@@ -12,7 +12,7 @@ export default defineConfig({
     ],
     proxy: {
       '/api': {
-        target: process.env.ORCHESTRATOR_URL || 'http://localhost:3000',
+        target: process.env.VITE_ORCHESTRATOR_URL || 'http://localhost:3000',
         changeOrigin: true,
         rewrite: (path) => path
       }
