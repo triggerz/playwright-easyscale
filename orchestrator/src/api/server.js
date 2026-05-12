@@ -18,18 +18,21 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // CORS configuration
+const allowedOrigin = process.env.WEB_UI_URL || 'http://localhost:5173';
 const corsOptions = {
-  origin: process.env.WEB_UI_URL || 'http://localhost:5173',
+  origin: allowedOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 };
 
-console.log('🔒 CORS Configuration:');
-console.log('   Allowed origin:', process.env.WEB_UI_URL || 'http://localhost:5173');
-
 // Middleware
 app.use(cors(corsOptions));
+
+// Log CORS config after middleware is set up
+console.log('🔒 CORS Configuration:');
+console.log('   Allowed origin:', allowedOrigin);
+console.log('   WEB_UI_URL env var:', process.env.WEB_UI_URL);
 app.use(express.json());
 
 // Request logging
