@@ -39,7 +39,7 @@ router.post('/', async (req, res) => {
     const railwayConfig = {
       apiToken: process.env.RAILWAY_API_TOKEN,
       environmentId: process.env.RAILWAY_ENVIRONMENT_ID,
-      serviceId: process.env.RAILWAY_SERVICE_ID,
+      serviceId: process.env.RAILWAY_WORKER_SERVICE_ID || process.env.RAILWAY_SERVICE_ID, // Use worker service ID
       storage: {
         endpoint: process.env.S3_ENDPOINT,
         accessKey: process.env.S3_ACCESS_KEY,
