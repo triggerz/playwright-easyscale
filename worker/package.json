@@ -16,6 +16,7 @@
   "author": "CultureDrivers",
   "license": "MIT",
   "dependencies": {
+    "@playwright-easyscale/shared": "*",
     "@playwright/test": "1.48.2",
     "@aws-sdk/client-s3": "^3.450.0"
   },

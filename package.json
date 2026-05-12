@@ -3,8 +3,17 @@
   "version": "1.0.0",
   "description": "A distributed browser testing framework for running large-scale Playwright tests across multiple Railway containers",
   "main": "index.js",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "orchestrator",
+    "worker",
+    "web-ui"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test command specified\" && exit 1"
+    "test": "echo \"Error: no test command specified\" && exit 1",
+    "install:all": "npm install && npm install --workspaces",
+    "start": "docker-compose up --build"
   },
   "keywords": [
     "playwright",

@@ -1,0 +1,13 @@
+{
+  "name": "@playwright-easyscale/shared",
+  "version": "1.0.0",
+  "description": "Shared utilities for Playwright EasyScale orchestrator and workers",
+  "main": "index.js",
+  "private": true,
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.450.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

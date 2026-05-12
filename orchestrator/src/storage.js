@@ -3,24 +3,9 @@
  * Handles S3-compatible storage operations including bucket creation
  */
 
-const { S3Client, CreateBucketCommand, HeadBucketCommand } = require('@aws-sdk/client-s3');
-
-/**
- * Create S3 client
- * @param {Object} config - Storage configuration
- * @returns {S3Client} S3 client instance
- */
-function createS3Client(config) {
-  return new S3Client({
-    endpoint: config.endpoint,
-    region: config.region || 'auto',
-    credentials: {
-      accessKeyId: config.accessKey,
-      secretAccessKey: config.secretKey
-    },
-    forcePathStyle: true // Required for MinIO and some S3-compatible services
-  });
-}
+const { CreateBucketCommand, HeadBucketCommand } = require('@aws-sdk/client-s3');
+const { createS3Client } = require('@playwright-easyscale/shared/s3Client');
+const { uploadToS3, downloadFromS3, listS3Objects } = require('@playwright-easyscale/shared/s3Operations');
 
 /**
  * Check if bucket exists
@@ -83,9 +68,17 @@ async function ensureStorageReady(storageConfig) {
   }
 }
 
+// Re-export shared operations with legacy names for backward compatibility
+const uploadToStorage = uploadToS3;
+const downloadFromStorage = downloadFromS3;
+const listStorageObjects = listS3Objects;
+
 module.exports = {
   createS3Client,
   bucketExists,
   createBucketIfNotExists,
-  ensureStorageReady
+  ensureStorageReady,
+  uploadToStorage,
+  downloadFromStorage,
+  listStorageObjects
 };

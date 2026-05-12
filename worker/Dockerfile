@@ -2,13 +2,21 @@ FROM mcr.microsoft.com/playwright:v1.48.2-focal
 
 WORKDIR /app
 
-COPY package.json ./
+# Copy shared utilities first
+COPY shared /app/shared
+WORKDIR /app/shared
 RUN npm install
 
-COPY . .
+# Copy worker
+WORKDIR /app/worker
+COPY worker/package*.json ./
+RUN npm install
 
-ENV USER_RANGE_START=1
-ENV USER_RANGE_END=1
-ENV HEADLESS=true
+# Copy worker files
+COPY worker/tests ./tests
+COPY worker/helpers ./helpers
+COPY worker/playwright.config.js ./
+COPY worker/upload-results.js ./
 
+# Run tests
 CMD ["npm", "test"]
