@@ -3,13 +3,13 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY web-ui/package*.json ./
 
 # Install dependencies
 RUN npm install
 
 # Copy source code
-COPY . .
+COPY web-ui/ .
 
 # Build the app
 RUN npm run build

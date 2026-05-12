@@ -34,8 +34,8 @@ services:
   # Web UI - Frontend service
   web-ui:
     build:
-      context: ./web-ui
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: web-ui/Dockerfile
     ports:
       - "5173:5173"
     environment:

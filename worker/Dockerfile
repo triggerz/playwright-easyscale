@@ -10,7 +10,10 @@ RUN npm install
 # Copy worker
 WORKDIR /app/worker
 COPY worker/package*.json ./
-RUN npm install
+
+# Link the shared package instead of installing from npm
+RUN npm install --omit=optional && \
+    npm link ../shared
 
 # Copy worker files
 COPY worker/tests ./tests
