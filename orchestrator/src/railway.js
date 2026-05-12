@@ -87,22 +87,26 @@ class RailwayClient {
   async updateEnvironmentVariables(environmentId, serviceId, variables) {
     // Railway API v2 requires setting variables individually
     const mutation = `
-      mutation VariableUpsert($input: VariableUpsertInput!) {
-        variableUpsert(input: $input)
+      mutation VariableUpsert($environmentId: String!, $serviceId: String!, $name: String!, $value: String!) {
+        variableUpsert(input: {
+          environmentId: $environmentId
+          serviceId: $serviceId
+          name: $name
+          value: $value
+        })
       }
     `;
 
     // Set each variable individually
     for (const [key, value] of Object.entries(variables)) {
-      const input = {
-        environmentId: environmentId,
-        serviceId: serviceId,
-        name: key,
-        value: String(value) // Ensure value is a string
-      };
-
       try {
-        await this.query(mutation, { input });
+        console.log(`Setting variable ${key} for service ${serviceId} in environment ${environmentId}`);
+        await this.query(mutation, {
+          environmentId: environmentId,
+          serviceId: serviceId,
+          name: key,
+          value: String(value)
+        });
       } catch (error) {
         // Log the error but continue with other variables
         console.error(`Failed to set variable ${key}:`, error.message);
