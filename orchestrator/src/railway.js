@@ -51,16 +51,16 @@ class RailwayClient {
 
   /**
    * Deploy a service with environment variables
-   * @param {string} projectId - Railway project ID
+   * @param {string} environmentId - Railway environment ID
    * @param {string} serviceId - Railway service ID
    * @param {Object} environmentVariables - Environment variables
    * @returns {Promise<Object>} Deployment info
    */
-  async deployService(projectId, serviceId, environmentVariables) {
+  async deployService(environmentId, serviceId, environmentVariables) {
     // First, update environment variables
-    await this.updateEnvironmentVariables(projectId, serviceId, environmentVariables);
+    await this.updateEnvironmentVariables(environmentId, serviceId, environmentVariables);
 
-    // Then trigger a deployment
+    // Then trigger a deployment using the correct mutation
     const mutation = `
       mutation ServiceInstanceRedeploy($environmentId: String!, $serviceId: String!) {
         serviceInstanceRedeploy(environmentId: $environmentId, serviceId: $serviceId)
@@ -68,7 +68,7 @@ class RailwayClient {
     `;
 
     const data = await this.query(mutation, {
-      environmentId: projectId,
+      environmentId: environmentId,
       serviceId: serviceId
     });
 
@@ -80,13 +80,12 @@ class RailwayClient {
 
   /**
    * Update environment variables for a service
-   * @param {string} projectId - Railway project ID (actually environmentId in Railway v2 API)
+   * @param {string} environmentId - Railway environment ID
    * @param {string} serviceId - Railway service ID
    * @param {Object} variables - Environment variables as key-value pairs
    */
-  async updateEnvironmentVariables(projectId, serviceId, variables) {
+  async updateEnvironmentVariables(environmentId, serviceId, variables) {
     // Railway API v2 requires setting variables individually
-    // The variableCollectionUpsert mutation requires proper permissions
     const mutation = `
       mutation VariableUpsert($input: VariableUpsertInput!) {
         variableUpsert(input: $input)
@@ -96,13 +95,19 @@ class RailwayClient {
     // Set each variable individually
     for (const [key, value] of Object.entries(variables)) {
       const input = {
-        environmentId: projectId,
+        environmentId: environmentId,
         serviceId: serviceId,
         name: key,
-        value: value
+        value: String(value) // Ensure value is a string
       };
 
-      await this.query(mutation, { input });
+      try {
+        await this.query(mutation, { input });
+      } catch (error) {
+        // Log the error but continue with other variables
+        console.error(`Failed to set variable ${key}:`, error.message);
+        throw error; // Re-throw to stop deployment if variable setting fails
+      }
       
       // Small delay to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 100));
