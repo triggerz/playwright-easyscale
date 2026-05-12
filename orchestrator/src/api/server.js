@@ -25,6 +25,9 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization']
 };
 
+console.log('🔒 CORS Configuration:');
+console.log('   Allowed origin:', process.env.WEB_UI_URL || 'http://localhost:5173');
+
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
