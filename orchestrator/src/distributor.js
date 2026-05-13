@@ -48,16 +48,18 @@ function generateContainerEnv(container, config, runId) {
     // Core distribution variables (required by framework)
     USER_RANGE_START: container.startUser.toString(),
     USER_RANGE_END: container.endUser.toString(),
+    SHARD_INDEX: container.shardIndex.toString(),
+    SHARD_TOTAL: container.shardTotal.toString(),
     
     // Run identification
     RUN_ID: runId,
     
-    // Storage configuration (for result uploads)
-    STORAGE_ENDPOINT: config.storage.endpoint,
-    STORAGE_ACCESS_KEY: config.storage.accessKey,
-    STORAGE_SECRET_KEY: config.storage.secretKey,
-    STORAGE_BUCKET: config.storage.bucket,
-    STORAGE_REGION: config.storage.region || 'auto'
+    // S3 Storage configuration (for startup script and result uploads)
+    S3_ENDPOINT: config.storage.endpoint,
+    S3_ACCESS_KEY: config.storage.accessKey,
+    S3_SECRET_KEY: config.storage.secretKey,
+    S3_BUCKET: config.storage.bucket,
+    S3_REGION: config.storage.region || 'auto'
   };
 
   return env;

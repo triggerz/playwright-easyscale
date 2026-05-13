@@ -16,11 +16,11 @@ async function main() {
   const runId = process.env.RUN_ID;
   const shardIndex = process.env.SHARD_INDEX || '1';
   const storageConfig = {
-    endpoint: process.env.STORAGE_ENDPOINT,
-    accessKey: process.env.STORAGE_ACCESS_KEY,
-    secretKey: process.env.STORAGE_SECRET_KEY,
-    bucket: process.env.STORAGE_BUCKET,
-    region: process.env.STORAGE_REGION || 'auto'
+    endpoint: process.env.S3_ENDPOINT,
+    accessKey: process.env.S3_ACCESS_KEY,
+    secretKey: process.env.S3_SECRET_KEY,
+    bucket: process.env.S3_BUCKET,
+    region: process.env.S3_REGION || 'auto'
   };
 
   // Validate configuration
@@ -31,7 +31,7 @@ async function main() {
 
   if (!storageConfig.endpoint || !storageConfig.accessKey || !storageConfig.secretKey || !storageConfig.bucket) {
     console.error('❌ Storage configuration incomplete');
-    console.error('   Required: STORAGE_ENDPOINT, STORAGE_ACCESS_KEY, STORAGE_SECRET_KEY, STORAGE_BUCKET');
+    console.error('   Required: S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET');
     process.exit(1);
   }
 

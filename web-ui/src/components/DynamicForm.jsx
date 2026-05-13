@@ -192,7 +192,7 @@ export default function DynamicForm({ test, onStart }) {
             disabled={loading}
             className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
           >
-            {loading ? '🚀 Starting...' : '🚀 Start Test Run'}
+            {loading ? '⚙️ Preparing...' : '⚙️ Prepare Workers'}
           </button>
         </div>
       </form>

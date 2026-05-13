@@ -39,11 +39,11 @@ function createS3Client(config) {
  */
 function getStorageConfigFromEnv() {
   return {
-    endpoint: process.env.STORAGE_ENDPOINT || process.env.S3_ENDPOINT,
-    accessKey: process.env.STORAGE_ACCESS_KEY || process.env.S3_ACCESS_KEY,
-    secretKey: process.env.STORAGE_SECRET_KEY || process.env.S3_SECRET_KEY,
-    bucket: process.env.STORAGE_BUCKET || process.env.S3_BUCKET,
-    region: process.env.STORAGE_REGION || process.env.S3_REGION || 'auto'
+    endpoint: process.env.S3_ENDPOINT,
+    accessKey: process.env.S3_ACCESS_KEY,
+    secretKey: process.env.S3_SECRET_KEY,
+    bucket: process.env.S3_BUCKET,
+    region: process.env.S3_REGION || 'auto'
   };
 }
 

@@ -95,8 +95,8 @@ Shared utilities should be unit tested independently to ensure reliability acros
 
 The shared utilities expect these environment variables:
 
-- `STORAGE_ENDPOINT` or `S3_ENDPOINT` - S3 endpoint URL
-- `STORAGE_ACCESS_KEY` or `S3_ACCESS_KEY` - S3 access key
-- `STORAGE_SECRET_KEY` or `S3_SECRET_KEY` - S3 secret key
-- `STORAGE_BUCKET` or `S3_BUCKET` - S3 bucket name
-- `STORAGE_REGION` or `S3_REGION` - S3 region (default: 'auto')
+- `S3_ENDPOINT` - S3 endpoint URL
+- `S3_ACCESS_KEY` - S3 access key
+- `S3_SECRET_KEY` - S3 secret key
+- `S3_BUCKET` - S3 bucket name
+- `S3_REGION` - S3 region (default: 'auto')
