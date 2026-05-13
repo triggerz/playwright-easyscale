@@ -36,11 +36,17 @@ console.log(`📊 Total users in this container: ${userRangeEnd - userRangeStart
 // Create a test for each user in the range
 for (let userId = userRangeStart; userId <= userRangeEnd; userId++) {
   test(`User ${userId} - Login workflow`, async ({ page }) => {
-    // Load parameters for this specific user from Redis
+    // Load parameters for this specific user from S3
     const params = await loadParametersForUser(userId);
     
-    // Use parameters or fall back to defaults
-    const loginUrl = params.loginUrl || 'https://example.com/login';
+    // Use parameters from form
+    let loginUrl = params.loginUrl || process.env.TEST_APP_URL;
+    
+    // Add https:// if not present
+    if (loginUrl && !loginUrl.startsWith('http')) {
+      loginUrl = `https://${loginUrl}`;
+    }
+    
     const credentials = params.credentials || {};
     const email = credentials.email || `user${userId}@example.com`;
     const password = credentials.password || 'password123';
