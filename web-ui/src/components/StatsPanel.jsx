@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
+import { getRunStatusColor } from '../utils/statusColors'
+import { formatDuration } from '../utils/dateFormatters'
 
 export default function StatsPanel({ runId }) {
   const [run, setRun] = useState(null)
@@ -61,31 +63,6 @@ export default function StatsPanel({ runId }) {
 
   if (!run) return null
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'running':
-        return 'bg-blue-500'
-      case 'completed':
-        return 'bg-green-500'
-      case 'failed':
-        return 'bg-red-500'
-      case 'pending':
-        return 'bg-yellow-500'
-      default:
-        return 'bg-gray-500'
-    }
-  }
-
-  const formatDuration = (startTime) => {
-    if (!startTime) return 'N/A'
-    const start = new Date(startTime)
-    const now = new Date()
-    const diff = Math.floor((now - start) / 1000)
-    const minutes = Math.floor(diff / 60)
-    const seconds = diff % 60
-    return `${minutes}m ${seconds}s`
-  }
-
   return (
     <div className="bg-gray-800 rounded-lg p-6">
       <div className="flex items-center justify-between mb-6">
@@ -94,7 +71,7 @@ export default function StatsPanel({ runId }) {
           <p className="text-gray-400 text-sm">Run ID: {run.id}</p>
         </div>
         <div className="flex items-center space-x-3">
-          <span className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(run.status)} text-white`}>
+          <span className={`px-4 py-2 rounded-full text-sm font-medium ${getRunStatusColor(run.status)} text-white`}>
             {run.status}
           </span>
           {run.status === 'running' && (

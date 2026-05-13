@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
+import { getWorkerStateColor, getWorkerStateIcon, getWorkerContainerColor } from '../utils/statusColors'
 
 export default function WorkerDashboard({ runId }) {
   const [workers, setWorkers] = useState([])
@@ -100,63 +101,6 @@ export default function WorkerDashboard({ runId }) {
   const allWorkersFinished = workers.length > 0 && workers.every(w => ['finished', 'stopped'].includes(w.state))
   const canReset = workers.length > 0 && workers.some(w => w.state === 'stopped')
 
-  const getStatusColor = (state) => {
-    switch (state) {
-      case 'deploying':
-        return 'bg-orange-500'
-      case 'ready':
-        return 'bg-green-500'
-      case 'testing':
-        return 'bg-blue-500'
-      case 'stopped':
-        return 'bg-gray-500'
-      case 'finished':
-        return 'bg-green-600'
-      case 'deleted':
-        return 'bg-gray-700'
-      default:
-        return 'bg-gray-500'
-    }
-  }
-
-  const getStatusIcon = (state) => {
-    switch (state) {
-      case 'deploying':
-        return '🚀'
-      case 'ready':
-        return '👷'
-      case 'testing':
-        return '⚡'
-      case 'stopped':
-        return '⏹️'
-      case 'finished':
-        return '✅'
-      case 'deleted':
-        return '🗑️'
-      default:
-        return '❓'
-    }
-  }
-
-  const getContainerBgColor = (state) => {
-    switch (state) {
-      case 'deploying':
-        return 'bg-orange-900/20 border-orange-700/50'
-      case 'ready':
-        return 'bg-green-900/20 border-green-700/50'
-      case 'testing':
-        return 'bg-blue-900/20 border-blue-700/50'
-      case 'stopped':
-        return 'bg-gray-900/20 border-gray-700/50'
-      case 'finished':
-        return 'bg-green-900/30 border-green-700'
-      case 'deleted':
-        return 'bg-gray-900/30 border-gray-800'
-      default:
-        return 'bg-gray-700/50 border-gray-600'
-    }
-  }
-
   if (loading && workers.length === 0) {
     return (
       <div className="bg-gray-800 rounded-lg p-6">
@@ -192,11 +136,11 @@ export default function WorkerDashboard({ runId }) {
           {workers.map((worker) => (
             <div
               key={worker.index}
-              className={`rounded-lg p-4 border ${getContainerBgColor(worker.state || worker.status)}`}
+              className={`rounded-lg p-4 border ${getWorkerContainerColor(worker.state || worker.status)}`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <span className="text-2xl">{getStatusIcon(worker.state || worker.status)}</span>
+                  <span className="text-2xl">{getWorkerStateIcon(worker.state || worker.status)}</span>
                   <div>
                     <h3 className="font-semibold">
                       Worker {worker.index}
@@ -207,7 +151,7 @@ export default function WorkerDashboard({ runId }) {
                   </div>
                 </div>
                 <div className="text-right">
-                   <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(worker.state || worker.status)} text-white`}>
+                   <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getWorkerStateColor(worker.state || worker.status)} text-white`}>
                      {worker.state || worker.status}
                    </span>
                    {(worker.passed !== undefined || worker.failed !== undefined) && (

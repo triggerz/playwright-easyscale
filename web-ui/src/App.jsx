@@ -5,6 +5,7 @@ import DynamicForm from './components/DynamicForm'
 import WorkerDashboard from './components/WorkerDashboard'
 import LogViewer from './components/LogViewer'
 import StatsPanel from './components/StatsPanel'
+import HistoryList from './components/HistoryList'
 import { api } from './services/api'
 
 function App() {
@@ -64,6 +65,11 @@ function App() {
   }
 
   const handleTestStart = (runId) => {
+    setCurrentRun(runId)
+    setView('running')
+  }
+
+  const handleSelectRun = (runId) => {
     setCurrentRun(runId)
     setView('running')
   }
@@ -152,10 +158,7 @@ function App() {
             <LogViewer runId={currentRun} />
           </div>
         ) : view === 'history' ? (
-          <div className="bg-gray-800 rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Test Run History</h2>
-            <p className="text-gray-400">Coming soon...</p>
-          </div>
+          <HistoryList onSelectRun={handleSelectRun} />
         ) : null}
       </main>
     </div>
