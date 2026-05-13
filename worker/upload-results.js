@@ -64,10 +64,58 @@ async function main() {
     await uploadTestResults(runId, shardIndex, summary, storageConfig);
 
     console.log('\n✅ All results uploaded successfully!\n');
+    
+    // Update worker status to completed
+    await updateWorkerStatus('completed');
   } catch (error) {
     console.error('\n❌ Upload failed:', error.message);
     console.error(error.stack);
+    
+    // Update worker status to failed
+    await updateWorkerStatus('failed');
     process.exit(1);
+  }
+}
+
+/**
+ * Update worker status in S3
+ */
+async function updateWorkerStatus(status) {
+  try {
+    const { uploadJSON, downloadJSON } = require('@playwright-easyscale/shared/s3Operations');
+    const { getWorkerStatusPath } = require('@playwright-easyscale/shared/storagePaths');
+    
+    const runId = process.env.RUN_ID;
+    const shardIndex = process.env.SHARD_INDEX || '1';
+    const storageConfig = {
+      endpoint: process.env.S3_ENDPOINT,
+      accessKey: process.env.S3_ACCESS_KEY,
+      secretKey: process.env.S3_SECRET_KEY,
+      bucket: process.env.S3_BUCKET,
+      region: process.env.S3_REGION || 'auto'
+    };
+    
+    // Get current status
+    const currentStatus = await downloadJSON(
+      storageConfig,
+      getWorkerStatusPath(runId, shardIndex)
+    );
+    
+    // Update with new status
+    await uploadJSON(
+      storageConfig,
+      getWorkerStatusPath(runId, shardIndex),
+      {
+        ...currentStatus,
+        status,
+        lastUpdated: new Date().toISOString(),
+        completedAt: new Date().toISOString()
+      }
+    );
+    
+    console.log(`✓ Worker status updated to: ${status}`);
+  } catch (error) {
+    console.error('Failed to update worker status:', error.message);
   }
 }
 

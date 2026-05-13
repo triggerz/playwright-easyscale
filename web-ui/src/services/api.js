@@ -83,14 +83,14 @@ class ApiService {
     })
   }
 
-  async deleteWorkers(runId) {
-    return this.request(`/runs/${runId}/workers`, {
-      method: 'DELETE',
+  async stopRun(runId) {
+    return this.request(`/runs/${runId}/stop`, {
+      method: 'POST',
     })
   }
 
-  async stopRun(runId) {
-    return this.request(`/runs/${runId}`, {
+  async deleteWorkers(runId) {
+    return this.request(`/runs/${runId}/workers`, {
       method: 'DELETE',
     })
   }

@@ -6,6 +6,7 @@ export default function WorkerDashboard({ runId }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [startingTests, setStartingTests] = useState(false)
+  const [stoppingTests, setStoppingTests] = useState(false)
   const [deletingWorkers, setDeletingWorkers] = useState(false)
 
   useEffect(() => {
@@ -39,15 +40,33 @@ export default function WorkerDashboard({ runId }) {
     }
   }
 
+  const handleStopTests = async () => {
+    if (!confirm('Are you sure you want to stop all running tests?')) {
+      return
+    }
+    
+    try {
+      setStoppingTests(true)
+      setError('')
+      await api.stopRun(runId)
+      await loadWorkers()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setStoppingTests(false)
+    }
+  }
+
   const handleDeleteWorkers = async () => {
-    if (!confirm('Are you sure you want to delete all workers? This will stop any running tests.')) {
+    if (!confirm('Are you sure you want to delete all workers? This action cannot be undone.')) {
       return
     }
     
     try {
       setDeletingWorkers(true)
       setError('')
-      await api.deleteWorkers(runId)
+      const result = await api.deleteWorkers(runId)
+      console.log('Delete result:', result)
       await loadWorkers()
     } catch (err) {
       setError(err.message)
@@ -58,6 +77,7 @@ export default function WorkerDashboard({ runId }) {
 
   const allWorkersReady = workers.length > 0 && workers.every(w => w.status === 'ready')
   const anyWorkerRunning = workers.some(w => w.status === 'running')
+  const allWorkersStopped = workers.length > 0 && workers.every(w => ['completed', 'failed', 'stopped'].includes(w.status))
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -67,10 +87,16 @@ export default function WorkerDashboard({ runId }) {
         return 'bg-green-500'
       case 'running':
         return 'bg-blue-500'
+      case 'stopping':
+        return 'bg-yellow-500'
+      case 'stopped':
+        return 'bg-gray-500'
       case 'completed':
         return 'bg-green-600'
       case 'failed':
         return 'bg-red-500'
+      case 'deleted':
+        return 'bg-gray-700'
       case 'pending':
         return 'bg-yellow-500'
       default:
@@ -86,10 +112,16 @@ export default function WorkerDashboard({ runId }) {
         return '✓'
       case 'running':
         return '⚡'
+      case 'stopping':
+        return '⏸️'
+      case 'stopped':
+        return '⏹️'
       case 'completed':
         return '✅'
       case 'failed':
         return '❌'
+      case 'deleted':
+        return '🗑️'
       case 'pending':
         return '⏳'
       default:
@@ -105,10 +137,16 @@ export default function WorkerDashboard({ runId }) {
         return 'bg-green-900/20 border-green-700/50'
       case 'running':
         return 'bg-blue-900/20 border-blue-700/50'
+      case 'stopping':
+        return 'bg-yellow-900/20 border-yellow-700/50'
+      case 'stopped':
+        return 'bg-gray-900/20 border-gray-700/50'
       case 'completed':
         return 'bg-green-900/30 border-green-700'
       case 'failed':
         return 'bg-red-900/20 border-red-700/50'
+      case 'deleted':
+        return 'bg-gray-900/30 border-gray-800'
       default:
         return 'bg-gray-700/50 border-gray-600'
     }
@@ -195,54 +233,91 @@ export default function WorkerDashboard({ runId }) {
 
       {/* Action Buttons */}
       {workers.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-700 flex items-center justify-between">
-          <button
-            onClick={handleStartTests}
-            disabled={!allWorkersReady || anyWorkerRunning || startingTests}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
-          >
-            {startingTests ? (
-              <>
-                <span className="animate-spin">⚙️</span>
-                <span>Starting...</span>
-              </>
-            ) : (
-              <>
-                <span>🚀</span>
-                <span>Start Tests</span>
-              </>
+        <div className="mt-4 pt-4 border-t border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleStartTests}
+                disabled={!allWorkersReady || anyWorkerRunning || startingTests}
+                className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
+              >
+                {startingTests ? (
+                  <>
+                    <span className="animate-spin">⚙️</span>
+                    <span>Starting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>▶️</span>
+                    <span>Start Tests</span>
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={handleStopTests}
+                disabled={!anyWorkerRunning || stoppingTests}
+                className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
+              >
+                {stoppingTests ? (
+                  <>
+                    <span className="animate-spin">⚙️</span>
+                    <span>Stopping...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>⏹️</span>
+                    <span>Stop Tests</span>
+                  </>
+                )}
+              </button>
+            </div>
+            
+            <button
+              onClick={handleDeleteWorkers}
+              disabled={!allWorkersStopped || deletingWorkers}
+              className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
+            >
+              {deletingWorkers ? (
+                <>
+                  <span className="animate-spin">⚙️</span>
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <span>🗑️</span>
+                  <span>Delete Workers</span>
+                </>
+              )}
+            </button>
+          </div>
+          
+          {/* Status Messages */}
+          <div className="text-sm">
+            {allWorkersReady && !anyWorkerRunning && (
+              <p className="text-green-400">
+                ✓ All workers ready! Click "Start Tests" to begin.
+              </p>
             )}
-          </button>
-          
-          {allWorkersReady && (
-            <p className="text-sm text-green-400">
-              ✓ All workers ready! Click "Start Tests" to begin.
-            </p>
-          )}
-          
-          {!allWorkersReady && !anyWorkerRunning && (
-            <p className="text-sm text-orange-400">
-              ⏳ Waiting for workers to be ready...
-            </p>
-          )}
-          
-          <button
-            onClick={handleDeleteWorkers}
-            disabled={deletingWorkers}
-            className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
-          >
-            {deletingWorkers ? (
-              <>
-                <span className="animate-spin">⚙️</span>
-                <span>Deleting...</span>
-              </>
-            ) : (
-              <>
-                <span>🗑️</span>
-                <span>Delete Workers</span>
-              </>
+            
+            {!allWorkersReady && !anyWorkerRunning && !allWorkersStopped && (
+              <p className="text-orange-400">
+                ⏳ Waiting for workers to be ready...
+              </p>
             )}
-          </button>
+            
+            {anyWorkerRunning && (
+              <p className="text-blue-400">
+                ⚡ Tests running... Click "Stop Tests" to halt execution.
+              </p>
+            )}
+            
+            {allWorkersStopped && (
+              <p className="text-gray-400">
+                ⏹️ All workers stopped. Click "Delete Workers" to clean up.
+              </p>
+            )}
+          </div>
         </div>
       )}
 

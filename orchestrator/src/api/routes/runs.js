@@ -199,28 +199,42 @@ router.delete('/:runId/workers', async (req, res) => {
 });
 
 /**
+ * POST /api/runs/:runId/stop
+ * Send stop signal to all workers (doesn't delete them)
+ */
+router.post('/:runId/stop', async (req, res) => {
+  try {
+    const { runId } = req.params;
+    
+    await runManager.stopRun(runId);
+    
+    res.json({ 
+      message: `Stop signal sent to run ${runId}`,
+      runId 
+    });
+  } catch (error) {
+    console.error('Error stopping run:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+/**
  * DELETE /api/runs/:runId
- * Stop a run and clean up spawned services
+ * Delete run metadata (deprecated - use DELETE /api/runs/:runId/workers instead)
  */
 router.delete('/:runId', async (req, res) => {
   try {
     const { runId } = req.params;
     
-    // Build Railway config for cleanup
-    const railwayConfig = {
-      apiToken: process.env.RAILWAY_API_TOKEN,
-      projectId: process.env.RAILWAY_PROJECT_ID,
-      environmentId: process.env.RAILWAY_ENVIRONMENT_ID
-    };
-    
-    await runManager.stopRun(runId, railwayConfig);
-    
     res.json({ 
-      message: `Run ${runId} stopped and services cleaned up`,
+      message: `Use DELETE /api/runs/${runId}/workers to delete worker services`,
       runId 
     });
   } catch (error) {
-    console.error('Error stopping run:', error);
+    console.error('Error:', error);
     res.status(500).json({
       error: 'Internal server error',
       message: error.message

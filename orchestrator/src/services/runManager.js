@@ -271,6 +271,7 @@ class RunManager {
    * Clean up spawned worker services
    * @param {string} runId - Run identifier
    * @param {Object} railwayConfig - Railway configuration
+   * @returns {Promise<Object>} Deletion results
    */
   async cleanupWorkers(runId, railwayConfig) {
     const run = await this.getRun(runId);
@@ -280,48 +281,80 @@ class RunManager {
 
     if (!run.spawnedServices || run.spawnedServices.length === 0) {
       console.log(`No workers to clean up for run ${runId}`);
-      return;
+      return { deleted: 0, failed: 0 };
     }
 
     console.log(`Cleaning up ${run.spawnedServices.length} spawned worker services for run ${runId}`);
     const railway = new RailwayClient(railwayConfig.apiToken);
     
+    const results = {
+      deleted: 0,
+      failed: 0,
+      services: []
+    };
+    
     for (const serviceId of run.spawnedServices) {
       try {
         await railway.deleteService(serviceId);
         console.log(`Deleted worker service ${serviceId}`);
+        results.deleted++;
+        results.services.push({ serviceId, status: 'deleted' });
       } catch (error) {
         console.error(`Failed to delete service ${serviceId}:`, error.message);
+        results.failed++;
+        results.services.push({ serviceId, status: 'failed', error: error.message });
       }
     }
     
-    await this.updateRunStatus(runId, run.status, {
+    // Mark all workers as deleted in S3
+    const workers = await this.getWorkers(runId);
+    for (const worker of workers) {
+      await this.updateWorkerStatus(runId, worker.index, {
+        ...worker,
+        status: 'deleted',
+        deletedAt: new Date().toISOString()
+      });
+    }
+    
+    await this.updateRunStatus(runId, 'deleted', {
       servicesCleanedUp: true,
       cleanedUpAt: new Date().toISOString()
     });
     
-    console.log(`Workers cleaned up for run ${runId}`);
+    console.log(`Workers cleaned up for run ${runId}: ${results.deleted} deleted, ${results.failed} failed`);
+    return results;
   }
 
   /**
-   * Stop a run and clean up spawned worker services
+   * Stop a run by sending stop signal to workers
    * @param {string} runId - Run identifier
-   * @param {Object} railwayConfig - Railway configuration (optional, for cleanup)
    */
-  async stopRun(runId, railwayConfig = null) {
+  async stopRun(runId) {
     const run = await this.getRun(runId);
     if (!run) {
       throw new Error(`Run ${runId} not found`);
     }
 
-    await this.updateRunStatus(runId, 'stopped', {
-      stoppedAt: new Date().toISOString()
+    console.log(`Sending stop signal to run ${runId}`);
+    
+    // Write stop signal to S3
+    const { uploadJSON } = require('@playwright-easyscale/shared/s3Operations');
+    const { getRunControlPath } = require('@playwright-easyscale/shared/storagePaths');
+    
+    await uploadJSON(
+      this.storageConfig,
+      getRunControlPath(runId),
+      {
+        signal: 'stop',
+        timestamp: new Date().toISOString()
+      }
+    );
+    
+    await this.updateRunStatus(runId, 'stopping', {
+      stoppingAt: new Date().toISOString()
     });
-
-    // Clean up spawned worker services if Railway config is provided
-    if (railwayConfig) {
-      await this.cleanupWorkers(runId, railwayConfig);
-    }
+    
+    console.log(`Stop signal sent to run ${runId}`);
   }
 
   /**
