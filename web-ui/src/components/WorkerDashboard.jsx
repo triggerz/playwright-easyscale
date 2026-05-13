@@ -139,44 +139,51 @@ export default function WorkerDashboard({ runId }) {
           {workers.map((worker) => (
             <div
               key={worker.index}
-              className={`rounded-lg p-4 border ${getWorkerContainerColor(worker.state || worker.status)} flex flex-col`}
+              className={`rounded-lg p-4 border ${getWorkerContainerColor(worker.state || worker.status)} flex flex-col relative overflow-hidden`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-2xl">{getWorkerStateIcon(worker.state || worker.status)}</span>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${getWorkerStateColor(worker.state || worker.status)} text-white`}>
-                  {worker.state || worker.status}
-                </span>
+              {/* Large background emoji */}
+              <div className="absolute top-0 right-0 text-8xl opacity-10 pointer-events-none">
+                {getWorkerStateIcon(worker.state || worker.status)}
               </div>
               
-              <h3 className="font-semibold text-lg mb-1">
-                Worker {worker.index}
-              </h3>
-              
-              <p className="text-xs text-gray-400 mb-2">
-                Users {worker.startUser}-{worker.endUser}
-              </p>
-              
-              {(worker.passed !== undefined || worker.failed !== undefined) && (
-                <div className="text-xs mt-auto">
-                  <span className="text-green-400">{worker.passed || 0} ✓</span>
-                  {' / '}
-                  <span className="text-red-400">{worker.failed || 0} ✗</span>
+              {/* Content */}
+              <div className="relative z-10 flex flex-col h-full">
+                <div className="flex items-center justify-end mb-2">
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${getWorkerStateColor(worker.state || worker.status)} text-white`}>
+                    {worker.state || worker.status}
+                  </span>
                 </div>
-              )}
-
-              {/* Progress Bar */}
-              {worker.total > 0 && (
-                <div className="mt-2">
-                  <div className="w-full bg-gray-600 rounded-full h-1.5">
-                    <div
-                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
-                      style={{
-                        width: `${((worker.passed + worker.failed) / worker.total) * 100}%`
-                      }}
-                    ></div>
+                
+                <h3 className="font-semibold text-lg mb-1">
+                  Worker {worker.index}
+                </h3>
+                
+                <p className="text-xs text-gray-400 mb-2">
+                  Users {worker.startUser}-{worker.endUser}
+                </p>
+                
+                {(worker.passed !== undefined || worker.failed !== undefined) && (
+                  <div className="text-xs mt-auto">
+                    <span className="text-green-400">{worker.passed || 0} ✓</span>
+                    {' / '}
+                    <span className="text-red-400">{worker.failed || 0} ✗</span>
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* Progress Bar */}
+                {worker.total > 0 && (
+                  <div className="mt-2">
+                    <div className="w-full bg-gray-600 rounded-full h-1.5">
+                      <div
+                        className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${((worker.passed + worker.failed) / worker.total) * 100}%`
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
