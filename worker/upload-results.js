@@ -120,7 +120,7 @@ function parsePlaywrightResults() {
   console.log('========================================');
   
   try {
-    const resultsPath = path.join(__dirname, 'test-results', '.last-run.json');
+    const resultsPath = path.join(__dirname, 'test-results', 'results.json');
     console.log(`📁 Checking for results file at: ${resultsPath}`);
     
     // Try to read Playwright's JSON results

@@ -13,7 +13,7 @@ module.exports = defineConfig({
   workers: process.env.MAX_CONCURRENCY ? parseInt(process.env.MAX_CONCURRENCY) : 5,
   reporter: [
     ['list'],
-    ['json', { outputFile: 'test-results/.last-run.json' }]
+    ['json', { outputFile: 'test-results/results.json' }]
   ],
   timeout: process.env.TIMEOUT ? parseInt(process.env.TIMEOUT) : 300000,
   use: {

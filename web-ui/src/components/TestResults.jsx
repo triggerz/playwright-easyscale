@@ -134,7 +134,7 @@ export default function TestResults({ runId }) {
           {/* Worker Details (Collapsed by default) */}
           <details className="bg-gray-700/50 rounded-lg p-4">
             <summary className="cursor-pointer font-semibold text-gray-300 hover:text-white transition-colors">
-              ▶ Worker Details ({results.length} workers) - Click to expand
+              Worker Details ({results.length} workers) - Click to expand
             </summary>
             <div className="mt-4 space-y-3">
               {results.map((result) => {
