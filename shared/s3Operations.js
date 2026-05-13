@@ -4,6 +4,7 @@
  */
 
 const { GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { createS3Client, streamToString } = require('./s3Client');
 
 /**
@@ -83,10 +84,29 @@ async function downloadJSON(config, key) {
   return JSON.parse(content);
 }
 
+/**
+ * Generate a presigned URL for temporary access to an S3 object
+ * @param {Object} config - Storage configuration
+ * @param {string} key - Object key (path)
+ * @param {number} expiresIn - URL expiration time in seconds (default: 3600 = 1 hour)
+ * @returns {Promise<string>} Presigned URL
+ */
+async function getPresignedUrl(config, key, expiresIn = 3600) {
+  const client = createS3Client(config);
+  
+  const command = new GetObjectCommand({
+    Bucket: config.bucket,
+    Key: key
+  });
+
+  return await getSignedUrl(client, command, { expiresIn });
+}
+
 module.exports = {
   uploadToS3,
   downloadFromS3,
   listS3Objects,
   uploadJSON,
-  downloadJSON
+  downloadJSON,
+  getPresignedUrl
 };
