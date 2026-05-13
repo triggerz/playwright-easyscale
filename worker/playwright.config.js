@@ -11,11 +11,14 @@ module.exports = defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.RETRIES ? parseInt(process.env.RETRIES) : 0,
   workers: process.env.MAX_CONCURRENCY ? parseInt(process.env.MAX_CONCURRENCY) : 5,
-  reporter: 'list',
+  reporter: [
+    ['list'],
+    ['json', { outputFile: 'test-results/.last-run.json' }]
+  ],
   timeout: process.env.TIMEOUT ? parseInt(process.env.TIMEOUT) : 300000,
   use: {
     headless: process.env.HEADLESS !== 'false',
-    screenshot: 'only-on-failure',
+    screenshot: 'on',
     video: 'retain-on-failure',
     trace: 'retain-on-failure'
   },

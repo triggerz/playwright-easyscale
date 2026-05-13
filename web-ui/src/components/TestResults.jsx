@@ -85,111 +85,142 @@ export default function TestResults({ runId }) {
         <p className="text-gray-400">No results yet...</p>
       ) : (
         <>
-          {/* Summary */}
+          {/* Aggregated Summary */}
           <div className="grid grid-cols-4 gap-4 mb-6">
             <div className="bg-gray-700/50 rounded-lg p-4">
               <p className="text-gray-400 text-sm mb-1">Total Tests</p>
               <p className="text-3xl font-bold text-blue-400">{totalTests}</p>
             </div>
             <div className="bg-gray-700/50 rounded-lg p-4">
-              <p className="text-gray-400 text-sm mb-1">Passed</p>
+              <p className="text-gray-400 text-sm mb-1">✓ Passed</p>
               <p className="text-3xl font-bold text-green-400">{totalPassed}</p>
             </div>
             <div className="bg-gray-700/50 rounded-lg p-4">
-              <p className="text-gray-400 text-sm mb-1">Failed</p>
+              <p className="text-gray-400 text-sm mb-1">✗ Failed</p>
               <p className="text-3xl font-bold text-red-400">{totalFailed}</p>
             </div>
             <div className="bg-gray-700/50 rounded-lg p-4">
-              <p className="text-gray-400 text-sm mb-1">Skipped</p>
+              <p className="text-gray-400 text-sm mb-1">⊘ Skipped</p>
               <p className="text-3xl font-bold text-gray-400">{totalSkipped}</p>
             </div>
           </div>
 
-          {/* Worker Results */}
-          <div className="space-y-3">
-            {results.map((result) => {
-              const workerScreenshots = getWorkerScreenshots(result.shardIndex)
-              const isExpanded = expandedWorkers.has(result.shardIndex)
-              
-              return (
-                <div key={result.shardIndex} className="bg-gray-700 rounded-lg">
+          {/* Screenshots Section */}
+          {screenshots.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">Screenshots ({screenshots.length})</h3>
+              <div className="grid grid-cols-6 gap-2">
+                {screenshots.map((screenshot, idx) => (
                   <div
-                    onClick={() => toggleWorker(result.shardIndex)}
-                    className="p-4 cursor-pointer hover:bg-gray-600 transition-colors rounded-lg"
+                    key={idx}
+                    onClick={() => setSelectedScreenshot(screenshot)}
+                    className="relative aspect-video bg-gray-900 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <span className="text-lg font-semibold">
-                          {isExpanded ? '▼' : '▶'} Worker {result.shardIndex}
-                        </span>
-                        <span className="text-sm text-gray-400">
-                          Users {result.userRangeStart}-{result.userRangeEnd}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-green-400 font-semibold">{result.passed || 0} ✓</span>
-                          <span className="text-red-400 font-semibold">{result.failed || 0} ✗</span>
-                          <span className="text-gray-400">{result.skipped || 0} ⊘</span>
-                        </div>
-                        {workerScreenshots.length > 0 && (
-                          <span className="text-sm text-blue-400">
-                            📸 {workerScreenshots.length}
-                          </span>
-                        )}
-                      </div>
+                    <img
+                      src={screenshot.url}
+                      alt={screenshot.filename}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                      <p className="text-xs text-white truncate">W{screenshot.workerIndex}</p>
                     </div>
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-                  {isExpanded && (
-                    <div className="px-4 pb-4 space-y-4">
-                      {/* Result Details */}
-                      <div className="bg-gray-800 rounded p-3 text-sm">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <span className="text-gray-400">Status:</span>
-                            <span className="ml-2 text-white">{result.status}</span>
+          {/* Worker Details (Collapsible) */}
+          <details className="bg-gray-700/50 rounded-lg p-4">
+            <summary className="cursor-pointer font-semibold text-gray-300 hover:text-white">
+              Worker Details ({results.length} workers)
+            </summary>
+            <div className="mt-4 space-y-3">
+              {results.map((result) => {
+                const workerScreenshots = getWorkerScreenshots(result.shardIndex)
+                const isExpanded = expandedWorkers.has(result.shardIndex)
+                
+                return (
+                  <div key={result.shardIndex} className="bg-gray-700 rounded-lg">
+                    <div
+                      onClick={() => toggleWorker(result.shardIndex)}
+                      className="p-4 cursor-pointer hover:bg-gray-600 transition-colors rounded-lg"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <span className="text-lg font-semibold">
+                            {isExpanded ? '▼' : '▶'} Worker {result.shardIndex}
+                          </span>
+                          <span className="text-sm text-gray-400">
+                            Users {result.userRangeStart}-{result.userRangeEnd}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-green-400 font-semibold">{result.passed || 0} ✓</span>
+                            <span className="text-red-400 font-semibold">{result.failed || 0} ✗</span>
+                            <span className="text-gray-400">{result.skipped || 0} ⊘</span>
                           </div>
-                          <div>
-                            <span className="text-gray-400">Timestamp:</span>
-                            <span className="ml-2 text-white">
-                              {new Date(result.timestamp).toLocaleString()}
+                          {workerScreenshots.length > 0 && (
+                            <span className="text-sm text-blue-400">
+                              📸 {workerScreenshots.length}
                             </span>
-                          </div>
+                          )}
                         </div>
                       </div>
+                    </div>
 
-                      {/* Screenshots */}
-                      {workerScreenshots.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-semibold mb-2 text-gray-300">Screenshots</h4>
-                          <div className="grid grid-cols-4 gap-2">
-                            {workerScreenshots.map((screenshot, idx) => (
-                              <div
-                                key={idx}
-                                onClick={() => setSelectedScreenshot(screenshot)}
-                                className="relative aspect-video bg-gray-900 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
-                              >
-                                <img
-                                  src={screenshot.url}
-                                  alt={screenshot.filename}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                />
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1">
-                                  <p className="text-xs text-white truncate">{screenshot.filename}</p>
-                                </div>
-                              </div>
-                            ))}
+                    {isExpanded && (
+                      <div className="px-4 pb-4 space-y-4">
+                        {/* Result Details */}
+                        <div className="bg-gray-800 rounded p-3 text-sm">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <span className="text-gray-400">Status:</span>
+                              <span className="ml-2 text-white">{result.status}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Timestamp:</span>
+                              <span className="ml-2 text-white">
+                                {new Date(result.timestamp).toLocaleString()}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+
+                        {/* Screenshots */}
+                        {workerScreenshots.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-semibold mb-2 text-gray-300">Screenshots</h4>
+                            <div className="grid grid-cols-4 gap-2">
+                              {workerScreenshots.map((screenshot, idx) => (
+                                <div
+                                  key={idx}
+                                  onClick={() => setSelectedScreenshot(screenshot)}
+                                  className="relative aspect-video bg-gray-900 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                                >
+                                  <img
+                                    src={screenshot.url}
+                                    alt={screenshot.filename}
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                  />
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1">
+                                    <p className="text-xs text-white truncate">{screenshot.filename}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </details>
         </>
       )}
 

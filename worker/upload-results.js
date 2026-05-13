@@ -121,11 +121,41 @@ function parsePlaywrightResults() {
     // Try to read Playwright's JSON results
     if (fs.existsSync(resultsPath)) {
       const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+      
+      // Count test results from suites
+      let passed = 0;
+      let failed = 0;
+      let skipped = 0;
+      
+      if (results.suites) {
+        const countTests = (suites) => {
+          for (const suite of suites) {
+            if (suite.specs) {
+              for (const spec of suite.specs) {
+                if (spec.ok) {
+                  passed++;
+                } else {
+                  failed++;
+                }
+              }
+            }
+            if (suite.suites) {
+              countTests(suite.suites);
+            }
+          }
+        };
+        countTests(results.suites);
+      }
+      
+      const total = passed + failed + skipped;
+      
+      console.log(`Parsed test results: ${passed} passed, ${failed} failed, ${total} total`);
+      
       return {
-        total: results.stats?.expected || 0,
-        passed: results.stats?.expected || 0,
-        failed: results.stats?.unexpected || 0,
-        skipped: results.stats?.skipped || 0
+        total,
+        passed,
+        failed,
+        skipped
       };
     }
     
