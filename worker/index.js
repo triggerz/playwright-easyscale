@@ -104,8 +104,12 @@ async function runPlaywrightTests() {
     console.log(`\n[Worker ${WORKER_INDEX}] 🎭 Starting Playwright tests...`);
     console.log(`[Worker ${WORKER_INDEX}] User range: ${USER_RANGE_START}-${USER_RANGE_END}`);
     
-    // Spawn Playwright as child process
-    playwrightProcess = spawn('npx', ['playwright', 'test'], {
+    // Get test file from environment (default to example-with-metadata.spec.js)
+    const testFile = process.env.TEST_FILE || 'example-with-metadata.spec.js';
+    console.log(`[Worker ${WORKER_INDEX}] Test file: ${testFile}`);
+    
+    // Spawn Playwright as child process with specific test file
+    playwrightProcess = spawn('npx', ['playwright', 'test', `tests/${testFile}`], {
       stdio: 'inherit', // Show Playwright output in real-time
       env: process.env,
       detached: process.platform !== 'win32' // Create process group on Unix
