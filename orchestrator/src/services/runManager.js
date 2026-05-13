@@ -141,7 +141,8 @@ class RunManager {
           startUser: container.startUser,
           endUser: container.endUser,
           userCount: container.userCount,
-          status: 'deploying',
+          state: 'deploying',
+          command: null,
           serviceId: workerService.serviceId,
           serviceName: workerService.serviceName,
           startedAt: new Date().toISOString()
@@ -309,7 +310,7 @@ class RunManager {
     for (const worker of workers) {
       await this.updateWorkerStatus(runId, worker.index, {
         ...worker,
-        status: 'deleted',
+        state: 'deleted',
         deletedAt: new Date().toISOString()
       });
     }
