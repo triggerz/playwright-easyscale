@@ -106,7 +106,13 @@ async function uploadAllResults() {
     console.error(error.stack);
     
     // Update worker status to failed
-    await updateWorkerStatus('failed', { error: error.message });
+    try {
+      const { updateState } = require('./state-manager');
+      await updateState('failed', { error: error.message });
+    } catch (stateError) {
+      console.error('Failed to update state:', stateError.message);
+    }
+    
     process.exit(1);
   }
 }

@@ -108,7 +108,7 @@ This file contains:
 1. Report ready state on startup
 2. Wait for start command from orchestrator
 3. Clear command and update to testing state
-4. Spawn Playwright as child process using `child_process.spawn()`
+4. Spawn Playwright as child process with specific test file using `child_process.spawn()`
 5. Monitor for stop command in parallel (Promise.race pattern)
 6. Wait for Playwright completion or stop signal
 7. Upload results if tests completed naturally
@@ -118,9 +118,19 @@ This file contains:
 **Key Features:**
 - Single Node.js process manages everything
 - Proper parent-child process relationship with Playwright
+- **Runs specific test file** via `TEST_FILE` environment variable
 - Reliable process tree termination (kills all Playwright workers)
 - No race conditions between separate scripts
 - Clear async/await execution flow
+
+**Test File Selection:**
+The worker reads `TEST_FILE` environment variable (set by orchestrator) to determine which test file to run:
+```javascript
+const testFile = process.env.TEST_FILE || 'example-with-metadata.spec.js';
+playwrightProcess = spawn('npx', ['playwright', 'test', `tests/${testFile}`], {...});
+```
+
+This ensures only ONE test file runs per worker, preventing duplicate test execution.
 
 #### `state-manager.js`
 Central module for all state operations:
@@ -239,11 +249,103 @@ Single centralized service:
 - ✅ Better error handling
 - ✅ Easier debugging
 
+## Test Execution Model
+
+### Multi-Level Parallelism
+
+The system uses a three-tier parallelism model:
+
+```
+Orchestrator (distributes users across workers)
+  ├─> Worker 1 (Railway container, 8 vCPU, users 1-50)
+  │    └─> index.js spawns: npx playwright test tests/example-with-metadata.spec.js
+  │         └─> Playwright runs with workers=8 (8 concurrent test executions)
+  │              ├─> Test for user 1
+  │              ├─> Test for user 2
+  │              ├─> ... (cycles through users 1-50)
+  │
+  ├─> Worker 2 (Railway container, 8 vCPU, users 51-100)
+  │    └─> Same pattern for users 51-100
+  │
+  └─> ... (N workers total)
+```
+
+**Level 1: Orchestrator Distribution**
+- Distributes total users across Railway worker containers
+- Example: 250 users → 5 workers (50 users each)
+
+**Level 2: Worker Containers**
+- Each Railway container has dedicated resources (8 vCPU)
+- Runs ONE specific test file (via `TEST_FILE` env var)
+- Manages Playwright lifecycle
+
+**Level 3: Playwright Parallelism**
+- Playwright runs 8 concurrent workers within each container
+- Each Playwright worker executes tests sequentially
+- Cycles through all assigned users (e.g., users 1-50)
+
+### Test File Structure
+
+Test files use a **for-loop pattern** to create multiple tests:
+
+```javascript
+// example-with-metadata.spec.js
+const userRangeStart = parseInt(process.env.USER_RANGE_START || '1');
+const userRangeEnd = parseInt(process.env.USER_RANGE_END || '1');
+
+// Create one test per user in the assigned range
+for (let userId = userRangeStart; userId <= userRangeEnd; userId++) {
+  test(`User ${userId} - Login workflow`, async ({ page }) => {
+    // Load parameters for this specific user from S3
+    const params = await loadParametersForUser(userId);
+    
+    // Execute test with user-specific data
+    await page.goto(params.loginUrl);
+    await page.fill('input[name="email"]', params.credentials.email);
+    // ... rest of test
+  });
+}
+```
+
+**Why the for-loop?**
+- Creates N tests dynamically based on assigned user range
+- Each test gets unique parameters from S3 (`runs/{runId}/parameters/user-{N}.json`)
+- Playwright handles parallel execution of these tests
+- Simple, clear pattern that preserves parameter distribution system
+
+**Critical Fix:**
+Previously, Playwright loaded ALL test files in the `tests/` directory, causing duplicate test execution (15 tests instead of 5). Now, `index.js` specifies exactly which test file to run via the `TEST_FILE` environment variable, ensuring only the intended tests execute.
+
+## Parameter Distribution System
+
+### How Test Parameters Flow
+
+1. **UI Form** → User fills test metadata (loginUrl, credentials array, etc.)
+2. **Orchestrator** → Distributes parameters to S3:
+   - `runs/{runId}/parameters/user-1.json`
+   - `runs/{runId}/parameters/user-2.json`
+   - ... one file per user
+3. **Test Execution** → Each test calls `loadParametersForUser(userId)` to fetch its specific parameters
+4. **Test Uses Data** → Parameters used for login, actions, assertions
+
+**Example Parameter File:**
+```json
+{
+  "loginUrl": "https://example.com",
+  "credentials": {
+    "email": "user1@example.com",
+    "password": "password123"
+  }
+}
+```
+
+This system allows each test to have unique credentials, URLs, or other data while using the same test logic.
+
 ## Migration Notes
 
 ### Removed Files
-- `worker/startup.js` - Logic moved to `index.js`
-- `worker/command-monitor.js` - Logic moved to `index.js`
+- `worker/startup.js` - Logic moved to `index.js` (kept for reference, not used)
+- `worker/command-monitor.js` - Logic moved to `index.js` (kept for reference, not used)
 - `worker/stop-monitor.js` - Replaced by command monitoring in `index.js`
 - `shared/storagePaths.js::getRunControlPath()` - No longer needed
 
@@ -255,5 +357,20 @@ Single centralized service:
 - `worker/upload-results.js` - Now exports functions for use as module
 - `worker/package.json` - Changed to `"start": "node index.js"`
 - `worker/Dockerfile` - Copies `index.js` instead of startup/command-monitor
-- `orchestrator/src/services/runManager.js` - Writes commands not signals
+- `worker/index.js` - Added `TEST_FILE` environment variable support to run specific test file
+- `orchestrator/src/services/runManager.js` - Writes commands not signals, passes `TEST_FILE` env var
 - `web-ui/src/components/WorkerDashboard.jsx` - Shows new states
+
+### Key Architectural Changes
+
+**Test File Selection (Critical Fix):**
+- Worker now runs specific test file via `TEST_FILE` env var
+- Prevents duplicate test execution from multiple test files
+- Orchestrator sets `TEST_FILE` when deploying workers
+- Default: `example-with-metadata.spec.js`
+
+**Test Pattern:**
+- Tests use for-loops to create multiple test cases dynamically
+- Each test loads unique parameters from S3
+- Playwright handles parallel execution (8 workers per container)
+- Simple, maintainable pattern that scales

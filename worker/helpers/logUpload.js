@@ -52,20 +52,21 @@ async function uploadLogs(runId, shardIndex, logDir, config) {
     return;
   }
 
-  const files = fs.readdirSync(logDir);
+  // Get all files recursively
+  const allFiles = getAllFiles(logDir);
   const uploadPromises = [];
 
-  for (const file of files) {
-    const filePath = path.join(logDir, file);
+  for (const filePath of allFiles) {
+    const relativePath = path.relative(logDir, filePath);
     // Use logs/ prefix to match API expectations
-    const key = `logs/${runId}/worker-${shardIndex}-${file}`;
+    const key = `logs/${runId}/worker-${shardIndex}/${relativePath}`;
     
-    console.log(`Uploading ${file} to ${key}...`);
+    console.log(`Uploading ${relativePath} to ${key}...`);
     uploadPromises.push(uploadFile(filePath, key, config));
   }
 
   await Promise.all(uploadPromises);
-  console.log(`Uploaded ${files.length} files to storage`);
+  console.log(`Uploaded ${allFiles.length} files to storage`);
 }
 
 /**
