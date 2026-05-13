@@ -107,46 +107,6 @@ async function updateStatus(status) {
 }
 
 /**
- * Check for stop signal during test execution
- */
-async function checkForStopSignal() {
-  try {
-    const control = await downloadJSON(
-      storageConfig,
-      getRunControlPath(RUN_ID)
-    );
-    
-    if (control && control.signal === 'stop') {
-      console.log(`[Worker ${WORKER_INDEX}] ⚠️ Stop signal received!`);
-      return true;
-    }
-  } catch (error) {
-    // Control file doesn't exist or no stop signal yet
-  }
-  return false;
-}
-
-/**
- * Start background stop signal monitor
- */
-function startStopSignalMonitor() {
-  const checkInterval = 5000; // Check every 5 seconds
-  
-  const intervalId = setInterval(async () => {
-    const shouldStop = await checkForStopSignal();
-    if (shouldStop) {
-      console.log(`[Worker ${WORKER_INDEX}] Stopping test execution...`);
-      await updateStatus('stopping');
-      clearInterval(intervalId);
-      process.exit(0); // Exit gracefully
-    }
-  }, checkInterval);
-  
-  // Store interval ID so it can be cleared
-  return intervalId;
-}
-
-/**
  * Main startup sequence
  */
 async function main() {
@@ -176,10 +136,8 @@ async function main() {
   
   console.log(`[Worker ${WORKER_INDEX}] Starting test execution...\n`);
   
-  // Step 4: Start monitoring for stop signal
-  startStopSignalMonitor();
-  
-  // The Playwright tests will now run (handled by package.json script)
+  // Exit successfully - Playwright tests and stop monitor will run next
+  process.exit(0);
 }
 
 // Run startup sequence

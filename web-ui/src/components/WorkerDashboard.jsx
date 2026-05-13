@@ -28,15 +28,16 @@ export default function WorkerDashboard({ runId }) {
   }
 
   const handleStartTests = async () => {
+    if (startingTests) return // Prevent double-click
+    
     try {
       setStartingTests(true)
       setError('')
       await api.startRun(runId)
-      await loadWorkers()
+      // Don't re-enable the button - it will be disabled by state changes
     } catch (err) {
       setError(err.message)
-    } finally {
-      setStartingTests(false)
+      setStartingTests(false) // Only re-enable on error
     }
   }
 
@@ -109,7 +110,7 @@ export default function WorkerDashboard({ runId }) {
       case 'deploying':
         return '🚀'
       case 'ready':
-        return '✓'
+        return '👷'
       case 'running':
         return '⚡'
       case 'stopping':
@@ -194,7 +195,7 @@ export default function WorkerDashboard({ runId }) {
                   <span className="text-2xl">{getStatusIcon(worker.status)}</span>
                   <div>
                     <h3 className="font-semibold">
-                      Container {worker.index}
+                      Worker {worker.index}
                     </h3>
                     <p className="text-sm text-gray-400">
                       Users {worker.startUser}-{worker.endUser} ({worker.userCount} users)
@@ -257,7 +258,7 @@ export default function WorkerDashboard({ runId }) {
               <button
                 onClick={handleStopTests}
                 disabled={!anyWorkerRunning || stoppingTests}
-                className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
               >
                 {stoppingTests ? (
                   <>
@@ -276,7 +277,7 @@ export default function WorkerDashboard({ runId }) {
             <button
               onClick={handleDeleteWorkers}
               disabled={!allWorkersStopped || deletingWorkers}
-              className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
+              className="px-6 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
             >
               {deletingWorkers ? (
                 <>
