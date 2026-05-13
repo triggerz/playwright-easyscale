@@ -5,7 +5,7 @@ export default function LogViewer({ runId }) {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [autoScroll, setAutoScroll] = useState(true)
+  const [autoScroll, setAutoScroll] = useState(false)
   const logsEndRef = useRef(null)
 
   useEffect(() => {

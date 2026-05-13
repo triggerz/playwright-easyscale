@@ -100,14 +100,17 @@ export default function WorkerDashboard({ runId }) {
   const anyWorkerTesting = workers.some(w => w.state === 'testing')
   const allWorkersFinished = workers.length > 0 && workers.every(w => ['finished', 'stopped'].includes(w.state))
   const canReset = workers.length > 0 && workers.some(w => w.state === 'stopped')
+  const canDeleteWorkers = workers.length > 0 && !anyWorkerTesting
 
   if (loading && workers.length === 0) {
     return (
       <div className="bg-gray-800 rounded-lg p-6">
-        <h2 className="text-xl font-semibold mb-4">Worker Status</h2>
-        <div className="animate-pulse space-y-3">
-          <div className="h-16 bg-gray-700 rounded"></div>
-          <div className="h-16 bg-gray-700 rounded"></div>
+        <h2 className="text-xl font-semibold mb-4">Worker Pool</h2>
+        <div className="animate-pulse grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="h-32 bg-gray-700 rounded"></div>
+          <div className="h-32 bg-gray-700 rounded"></div>
+          <div className="h-32 bg-gray-700 rounded"></div>
+          <div className="h-32 bg-gray-700 rounded"></div>
         </div>
       </div>
     )
@@ -116,7 +119,7 @@ export default function WorkerDashboard({ runId }) {
   return (
     <div className="bg-gray-800 rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">Worker Status</h2>
+        <h2 className="text-xl font-semibold">Worker Pool</h2>
         <div className="flex items-center space-x-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
           <span className="text-sm text-gray-400">Live</span>
@@ -132,42 +135,41 @@ export default function WorkerDashboard({ runId }) {
       {workers.length === 0 ? (
         <p className="text-gray-400">No workers deployed yet...</p>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {workers.map((worker) => (
             <div
               key={worker.index}
-              className={`rounded-lg p-4 border ${getWorkerContainerColor(worker.state || worker.status)}`}
+              className={`rounded-lg p-4 border ${getWorkerContainerColor(worker.state || worker.status)} flex flex-col`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">{getWorkerStateIcon(worker.state || worker.status)}</span>
-                  <div>
-                    <h3 className="font-semibold">
-                      Worker {worker.index}
-                    </h3>
-                    <p className="text-sm text-gray-400">
-                      Users {worker.startUser}-{worker.endUser} ({worker.userCount} users)
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                   <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getWorkerStateColor(worker.state || worker.status)} text-white`}>
-                     {worker.state || worker.status}
-                   </span>
-                   {(worker.passed !== undefined || worker.failed !== undefined) && (
-                     <p className="text-xs text-gray-400 mt-1">
-                       {worker.passed || 0} passed, {worker.failed || 0} failed
-                     </p>
-                   )}
-                </div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-2xl">{getWorkerStateIcon(worker.state || worker.status)}</span>
+                <span className={`px-2 py-1 rounded text-xs font-medium ${getWorkerStateColor(worker.state || worker.status)} text-white`}>
+                  {worker.state || worker.status}
+                </span>
               </div>
+              
+              <h3 className="font-semibold text-lg mb-1">
+                Worker {worker.index}
+              </h3>
+              
+              <p className="text-xs text-gray-400 mb-2">
+                Users {worker.startUser}-{worker.endUser}
+              </p>
+              
+              {(worker.passed !== undefined || worker.failed !== undefined) && (
+                <div className="text-xs mt-auto">
+                  <span className="text-green-400">{worker.passed || 0} ✓</span>
+                  {' / '}
+                  <span className="text-red-400">{worker.failed || 0} ✗</span>
+                </div>
+              )}
 
               {/* Progress Bar */}
               {worker.total > 0 && (
-                <div className="mt-3">
-                  <div className="w-full bg-gray-600 rounded-full h-2">
+                <div className="mt-2">
+                  <div className="w-full bg-gray-600 rounded-full h-1.5">
                     <div
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
                       style={{
                         width: `${((worker.passed + worker.failed) / worker.total) * 100}%`
                       }}
@@ -242,7 +244,7 @@ export default function WorkerDashboard({ runId }) {
             
             <button
               onClick={handleDeleteWorkers}
-              disabled={!allWorkersFinished || deletingWorkers}
+              disabled={!canDeleteWorkers || deletingWorkers}
               className="px-6 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
             >
               {deletingWorkers ? (
