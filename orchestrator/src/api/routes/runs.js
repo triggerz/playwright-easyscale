@@ -222,6 +222,29 @@ router.post('/:runId/stop', async (req, res) => {
 });
 
 /**
+ * POST /api/runs/:runId/reset
+ * Reset run and workers to ready state (clears stop signal)
+ */
+router.post('/:runId/reset', async (req, res) => {
+  try {
+    const { runId } = req.params;
+    
+    await runManager.resetRun(runId);
+    
+    res.json({ 
+      message: `Run ${runId} reset to ready state`,
+      runId 
+    });
+  } catch (error) {
+    console.error('Error resetting run:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+/**
  * DELETE /api/runs/:runId
  * Delete run metadata (deprecated - use DELETE /api/runs/:runId/workers instead)
  */

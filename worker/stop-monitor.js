@@ -75,12 +75,18 @@ async function monitor() {
     if (shouldStop) {
       console.log(`[Stop Monitor ${WORKER_INDEX}] ⚠️ Stop signal received!`);
       console.log(`[Stop Monitor ${WORKER_INDEX}] Stopping test execution...`);
-      await updateStatus('stopping');
       clearInterval(intervalId);
+      
+      // Update status to stopped (not stopping)
+      await updateStatus('stopped');
       
       // Kill the parent process (Playwright tests)
       process.kill(process.ppid, 'SIGTERM');
-      process.exit(0);
+      
+      // Give it a moment, then exit
+      setTimeout(() => {
+        process.exit(0);
+      }, 1000);
     }
   }, checkInterval);
 }

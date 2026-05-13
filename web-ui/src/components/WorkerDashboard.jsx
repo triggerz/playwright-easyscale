@@ -7,6 +7,7 @@ export default function WorkerDashboard({ runId }) {
   const [error, setError] = useState('')
   const [startingTests, setStartingTests] = useState(false)
   const [stoppingTests, setStoppingTests] = useState(false)
+  const [resettingRun, setResettingRun] = useState(false)
   const [deletingWorkers, setDeletingWorkers] = useState(false)
 
   useEffect(() => {
@@ -34,10 +35,11 @@ export default function WorkerDashboard({ runId }) {
       setStartingTests(true)
       setError('')
       await api.startRun(runId)
-      // Don't re-enable the button - it will be disabled by state changes
+      await loadWorkers()
+      setStartingTests(false)
     } catch (err) {
       setError(err.message)
-      setStartingTests(false) // Only re-enable on error
+      setStartingTests(false)
     }
   }
 
@@ -55,6 +57,23 @@ export default function WorkerDashboard({ runId }) {
       setError(err.message)
     } finally {
       setStoppingTests(false)
+    }
+  }
+
+  const handleResetRun = async () => {
+    if (!confirm('Reset workers to ready state? This will clear the stop signal.')) {
+      return
+    }
+    
+    try {
+      setResettingRun(true)
+      setError('')
+      await api.resetRun(runId)
+      await loadWorkers()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setResettingRun(false)
     }
   }
 
@@ -78,7 +97,8 @@ export default function WorkerDashboard({ runId }) {
 
   const allWorkersReady = workers.length > 0 && workers.every(w => w.status === 'ready')
   const anyWorkerRunning = workers.some(w => w.status === 'running')
-  const allWorkersStopped = workers.length > 0 && workers.every(w => ['completed', 'failed', 'stopped'].includes(w.status))
+  const allWorkersFinished = workers.length > 0 && workers.every(w => ['completed', 'completed-with-failures', 'failed', 'stopped'].includes(w.status))
+  const canReset = workers.length > 0 && workers.some(w => w.status === 'stopped')
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -94,6 +114,8 @@ export default function WorkerDashboard({ runId }) {
         return 'bg-gray-500'
       case 'completed':
         return 'bg-green-600'
+      case 'completed-with-failures':
+        return 'bg-orange-600'
       case 'failed':
         return 'bg-red-500'
       case 'deleted':
@@ -119,6 +141,8 @@ export default function WorkerDashboard({ runId }) {
         return '⏹️'
       case 'completed':
         return '✅'
+      case 'completed-with-failures':
+        return '⚠️'
       case 'failed':
         return '❌'
       case 'deleted':
@@ -144,6 +168,8 @@ export default function WorkerDashboard({ runId }) {
         return 'bg-gray-900/20 border-gray-700/50'
       case 'completed':
         return 'bg-green-900/30 border-green-700'
+      case 'completed-with-failures':
+        return 'bg-orange-900/30 border-orange-700'
       case 'failed':
         return 'bg-red-900/20 border-red-700/50'
       case 'deleted':
@@ -203,25 +229,25 @@ export default function WorkerDashboard({ runId }) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(worker.status)} text-white`}>
-                    {worker.status}
-                  </span>
-                  {worker.completedTests !== undefined && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      {worker.completedTests}/{worker.totalTests} tests
-                    </p>
-                  )}
+                   <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(worker.status)} text-white`}>
+                     {worker.status}
+                   </span>
+                   {(worker.passed !== undefined || worker.failed !== undefined) && (
+                     <p className="text-xs text-gray-400 mt-1">
+                       {worker.passed || 0} passed, {worker.failed || 0} failed
+                     </p>
+                   )}
                 </div>
               </div>
 
               {/* Progress Bar */}
-              {worker.totalTests > 0 && (
+              {worker.total > 0 && (
                 <div className="mt-3">
                   <div className="w-full bg-gray-600 rounded-full h-2">
                     <div
                       className="bg-blue-500 h-2 rounded-full transition-all duration-300"
                       style={{
-                        width: `${(worker.completedTests / worker.totalTests) * 100}%`
+                        width: `${((worker.passed + worker.failed) / worker.total) * 100}%`
                       }}
                     ></div>
                   </div>
@@ -272,11 +298,29 @@ export default function WorkerDashboard({ runId }) {
                   </>
                 )}
               </button>
+
+              <button
+                onClick={handleResetRun}
+                disabled={!canReset || resettingRun}
+                className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
+              >
+                {resettingRun ? (
+                  <>
+                    <span className="animate-spin">⚙️</span>
+                    <span>Resetting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🔄</span>
+                    <span>Reset</span>
+                  </>
+                )}
+              </button>
             </div>
             
             <button
               onClick={handleDeleteWorkers}
-              disabled={!allWorkersStopped || deletingWorkers}
+              disabled={!allWorkersFinished || deletingWorkers}
               className="px-6 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
             >
               {deletingWorkers ? (
@@ -301,7 +345,7 @@ export default function WorkerDashboard({ runId }) {
               </p>
             )}
             
-            {!allWorkersReady && !anyWorkerRunning && !allWorkersStopped && (
+            {!allWorkersReady && !anyWorkerRunning && !allWorkersFinished && (
               <p className="text-orange-400">
                 ⏳ Waiting for workers to be ready...
               </p>
@@ -313,9 +357,15 @@ export default function WorkerDashboard({ runId }) {
               </p>
             )}
             
-            {allWorkersStopped && (
+            {canReset && (
+              <p className="text-yellow-400">
+                🔄 Workers stopped. Click "Reset" to prepare for another run, or "Delete Workers" to clean up.
+              </p>
+            )}
+            
+            {allWorkersFinished && !canReset && (
               <p className="text-gray-400">
-                ⏹️ All workers stopped. Click "Delete Workers" to clean up.
+                ⏹️ All workers finished. Click "Delete Workers" to clean up.
               </p>
             )}
           </div>
@@ -333,7 +383,7 @@ export default function WorkerDashboard({ runId }) {
           </div>
           <div>
             <p className="text-2xl font-bold text-green-400">
-              {workers.filter(w => w.status === 'completed').length}
+              {workers.filter(w => w.status === 'completed' || w.status === 'completed-with-failures').length}
             </p>
             <p className="text-xs text-gray-400">Completed</p>
           </div>

@@ -350,11 +350,53 @@ class RunManager {
       }
     );
     
-    await this.updateRunStatus(runId, 'stopping', {
-      stoppingAt: new Date().toISOString()
+    await this.updateRunStatus(runId, 'stopped', {
+      stoppedAt: new Date().toISOString()
     });
     
     console.log(`Stop signal sent to run ${runId}`);
+  }
+
+  /**
+   * Reset a run by clearing stop signal and resetting workers to ready
+   * @param {string} runId - Run identifier
+   */
+  async resetRun(runId) {
+    const run = await this.getRun(runId);
+    if (!run) {
+      throw new Error(`Run ${runId} not found`);
+    }
+
+    console.log(`Resetting run ${runId}`);
+    
+    // Clear control signal
+    const { uploadJSON } = require('@playwright-easyscale/shared/s3Operations');
+    const { getRunControlPath } = require('@playwright-easyscale/shared/storagePaths');
+    
+    await uploadJSON(
+      this.storageConfig,
+      getRunControlPath(runId),
+      {
+        signal: 'reset',
+        timestamp: new Date().toISOString()
+      }
+    );
+    
+    // Reset all workers to ready status
+    const workers = await this.getWorkers(runId);
+    for (const worker of workers) {
+      await this.updateWorkerStatus(runId, worker.index, {
+        ...worker,
+        status: 'ready',
+        resetAt: new Date().toISOString()
+      });
+    }
+    
+    await this.updateRunStatus(runId, 'ready', {
+      resetAt: new Date().toISOString()
+    });
+    
+    console.log(`Run ${runId} reset to ready state`);
   }
 
   /**

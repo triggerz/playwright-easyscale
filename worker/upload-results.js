@@ -36,6 +36,9 @@ async function main() {
   }
 
   try {
+    // Parse Playwright test results to get pass/fail counts
+    const testStats = parsePlaywrightResults();
+    
     // Upload Playwright test results
     const testResultsPath = path.join(__dirname, 'test-results');
     if (fs.existsSync(testResultsPath)) {
@@ -57,30 +60,81 @@ async function main() {
       timestamp: new Date().toISOString(),
       userRangeStart: process.env.USER_RANGE_START,
       userRangeEnd: process.env.USER_RANGE_END,
-      status: 'completed'
+      status: 'completed',
+      ...testStats
     };
 
     console.log('📝 Uploading summary...');
     await uploadTestResults(runId, shardIndex, summary, storageConfig);
 
     console.log('\n✅ All results uploaded successfully!\n');
+    console.log(`📊 Test Results: ${testStats.passed} passed, ${testStats.failed} failed, ${testStats.total} total\n`);
     
-    // Update worker status to completed
-    await updateWorkerStatus('completed');
+    // Update worker status to completed (or failed if any tests failed)
+    const finalStatus = testStats.failed > 0 ? 'completed-with-failures' : 'completed';
+    await updateWorkerStatus(finalStatus, testStats);
   } catch (error) {
     console.error('\n❌ Upload failed:', error.message);
     console.error(error.stack);
     
     // Update worker status to failed
-    await updateWorkerStatus('failed');
+    await updateWorkerStatus('failed', { error: error.message });
     process.exit(1);
   }
 }
 
 /**
+ * Parse Playwright test results from JSON reporter output
+ */
+function parsePlaywrightResults() {
+  try {
+    const resultsPath = path.join(__dirname, 'test-results', '.last-run.json');
+    
+    // Try to read Playwright's JSON results
+    if (fs.existsSync(resultsPath)) {
+      const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+      return {
+        total: results.stats?.expected || 0,
+        passed: results.stats?.expected || 0,
+        failed: results.stats?.unexpected || 0,
+        skipped: results.stats?.skipped || 0
+      };
+    }
+    
+    // Fallback: count test result directories
+    const testResultsPath = path.join(__dirname, 'test-results');
+    if (fs.existsSync(testResultsPath)) {
+      const dirs = fs.readdirSync(testResultsPath).filter(f => {
+        const fullPath = path.join(testResultsPath, f);
+        return fs.statSync(fullPath).isDirectory();
+      });
+      
+      const failed = dirs.filter(d => d.includes('failed')).length;
+      const total = dirs.length;
+      
+      return {
+        total,
+        passed: total - failed,
+        failed,
+        skipped: 0
+      };
+    }
+  } catch (error) {
+    console.warn('Could not parse test results:', error.message);
+  }
+  
+  return {
+    total: 0,
+    passed: 0,
+    failed: 0,
+    skipped: 0
+  };
+}
+
+/**
  * Update worker status in S3
  */
-async function updateWorkerStatus(status) {
+async function updateWorkerStatus(status, additionalData = {}) {
   try {
     const { uploadJSON, downloadJSON } = require('@playwright-easyscale/shared/s3Operations');
     const { getWorkerStatusPath } = require('@playwright-easyscale/shared/storagePaths');
@@ -108,6 +162,7 @@ async function updateWorkerStatus(status) {
       {
         ...currentStatus,
         status,
+        ...additionalData,
         lastUpdated: new Date().toISOString(),
         completedAt: new Date().toISOString()
       }

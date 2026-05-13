@@ -89,6 +89,12 @@ class ApiService {
     })
   }
 
+  async resetRun(runId) {
+    return this.request(`/runs/${runId}/reset`, {
+      method: 'POST',
+    })
+  }
+
   async deleteWorkers(runId) {
     return this.request(`/runs/${runId}/workers`, {
       method: 'DELETE',
