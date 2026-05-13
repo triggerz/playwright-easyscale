@@ -20,7 +20,32 @@ function App() {
       api.setToken(token)
       setIsAuthenticated(true)
     }
+    
+    // Restore view and currentRun from sessionStorage
+    const savedView = sessionStorage.getItem('currentView')
+    const savedRunId = sessionStorage.getItem('currentRunId')
+    if (savedView) {
+      setView(savedView)
+    }
+    if (savedRunId) {
+      setCurrentRun(savedRunId)
+    }
   }, [])
+  
+  // Persist view and currentRun to sessionStorage
+  useEffect(() => {
+    if (view) {
+      sessionStorage.setItem('currentView', view)
+    }
+  }, [view])
+  
+  useEffect(() => {
+    if (currentRun) {
+      sessionStorage.setItem('currentRunId', currentRun)
+    } else {
+      sessionStorage.removeItem('currentRunId')
+    }
+  }, [currentRun])
 
   const handleLogin = (token) => {
     localStorage.setItem('auth_token', token)
@@ -30,6 +55,8 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token')
+    sessionStorage.removeItem('currentView')
+    sessionStorage.removeItem('currentRunId')
     api.setToken(null)
     setIsAuthenticated(false)
     setSelectedTest(null)
