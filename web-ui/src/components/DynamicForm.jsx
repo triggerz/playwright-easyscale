@@ -1,14 +1,36 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../services/api'
 
 export default function DynamicForm({ test, onStart }) {
-  const [formData, setFormData] = useState({
-    totalUsers: 20,
-    usersPerContainer: 5,
-    parameters: {}
-  })
+  // Load saved values from localStorage
+  const loadSavedFormData = () => {
+    try {
+      const saved = localStorage.getItem(`test-form-${test.file}`)
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    } catch (error) {
+      console.error('Failed to load saved form data:', error)
+    }
+    return {
+      totalUsers: 20,
+      usersPerContainer: 5,
+      parameters: {}
+    }
+  }
+
+  const [formData, setFormData] = useState(loadSavedFormData())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(`test-form-${test.file}`, JSON.stringify(formData))
+    } catch (error) {
+      console.error('Failed to save form data:', error)
+    }
+  }, [formData, test.file])
 
   const handleSubmit = async (e) => {
     e.preventDefault()

@@ -77,6 +77,18 @@ class ApiService {
     return this.request(`/runs/${runId}/logs`)
   }
 
+  async startRun(runId) {
+    return this.request(`/runs/${runId}/start`, {
+      method: 'POST',
+    })
+  }
+
+  async deleteWorkers(runId) {
+    return this.request(`/runs/${runId}/workers`, {
+      method: 'DELETE',
+    })
+  }
+
   async stopRun(runId) {
     return this.request(`/runs/${runId}`, {
       method: 'DELETE',
