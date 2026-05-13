@@ -22,10 +22,9 @@ RUN npm link ../shared
 COPY worker/tests ./tests
 COPY worker/helpers ./helpers
 COPY worker/playwright.config.js ./
+COPY worker/index.js ./
 COPY worker/upload-results.js ./
-COPY worker/startup.js ./
-COPY worker/command-monitor.js ./
 COPY worker/state-manager.js ./
 
-# Run startup script which waits for start signal, then runs tests
+# Run centralized worker service
 CMD ["npm", "start"]

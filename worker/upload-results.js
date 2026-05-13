@@ -3,13 +3,19 @@
 /**
  * Post-test script to upload logs and results to storage
  * This runs after Playwright tests complete
+ * 
+ * Can be used as standalone script or imported as module
  */
 
 const { uploadLogs, uploadScreenshots, uploadTestResults } = require('./helpers/logUpload');
 const fs = require('fs');
 const path = require('path');
 
-async function main() {
+/**
+ * Upload all results (logs, screenshots, summary)
+ * Can be called from index.js or run standalone
+ */
+async function uploadAllResults() {
   console.log('\n========================================');
   console.log('📤 UPLOAD-RESULTS.JS STARTED');
   console.log(`Worker ${process.env.SHARD_INDEX || '1'} - Run ${process.env.RUN_ID}`);
@@ -154,4 +160,20 @@ function parsePlaywrightResults() {
 }
 
 
-main();
+/**
+ * Main function for standalone execution
+ */
+async function main() {
+  await uploadAllResults();
+}
+
+// Export for use as module
+module.exports = {
+  uploadAllResults,
+  parsePlaywrightResults
+};
+
+// Run as standalone script if executed directly
+if (require.main === module) {
+  main();
+}

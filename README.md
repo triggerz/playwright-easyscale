@@ -130,10 +130,9 @@ playwright-easyscale/
 │   ├── helpers/
 │   │   ├── utils.js
 │   │   └── logUpload.js
+│   ├── index.js         # Centralized worker service (main entry point)
 │   ├── state-manager.js # Worker state management
-│   ├── startup.js       # Worker initialization
-│   ├── command-monitor.js # Command polling service
-│   ├── upload-results.js # Result upload handler
+│   ├── upload-results.js # Result upload handler (modular)
 │   ├── Dockerfile
 │   ├── playwright.config.js
 │   └── package.json
@@ -164,14 +163,18 @@ The orchestrator runs on your machine and:
 
 ### 2. Worker Containers (Railway)
 
-Each worker container:
+Each worker container runs a **centralized service** (`index.js`) that:
 - Reports "ready" state when deployed
 - Waits for "start" command from orchestrator
+- Spawns Playwright as a child process
 - Runs a subset of users (e.g., users 1-5, 6-10, etc.)
-- Executes Playwright tests in parallel
-- Can be stopped mid-execution via "stop" command
+- Executes Playwright tests in parallel (5 workers per container)
+- Monitors for "stop" command during execution
+- Kills Playwright process tree when stopped
 - Uploads logs and screenshots to S3-compatible storage
 - Reports "finished" or "stopped" state when complete
+
+**Key Architecture**: Single Node.js process manages the entire worker lifecycle, ensuring reliable state transitions and proper process management.
 
 ### 3. Distribution Example
 

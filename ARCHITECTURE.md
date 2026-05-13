@@ -57,7 +57,7 @@ This file contains:
 
 **Trigger:** Worker container starts
 **Process:**
-1. `startup.js` runs
+1. `index.js` starts (centralized worker service)
 2. Calls `updateState('ready')` with worker metadata
 3. Waits for `command: 'start'`
 
@@ -69,27 +69,28 @@ This file contains:
 2. Worker detects command via `waitForCommand('start')`
 3. Worker clears command with `clearCommand()`
 4. Worker updates `state: 'testing'`
-5. Playwright tests begin
+5. Worker spawns Playwright as child process
+6. Worker begins monitoring for stop command in parallel
 
 ### 3. Testing → Finished
 
 **Trigger:** All tests complete naturally
 **Process:**
-1. Playwright tests finish
-2. `upload-results.js` runs
-3. Checks current state (not stopped)
-4. Updates `state: 'finished'` with test results
+1. Playwright process exits with code 0
+2. Worker stops command monitoring
+3. Worker calls `uploadAllResults()` to upload logs/screenshots
+4. Worker updates `state: 'finished'` with test results
 
 ### 4. Testing → Stopped
 
 **Trigger:** Admin clicks "Stop Tests"
 **Process:**
 1. Orchestrator writes `command: 'stop'` to testing workers
-2. `command-monitor.js` detects stop command
-3. Clears command with `clearCommand()`
-4. Updates `state: 'stopped'`
-5. Kills Playwright process with SIGTERM
-6. `upload-results.js` runs but preserves 'stopped' state
+2. Worker's command monitor detects stop command
+3. Worker clears command with `clearCommand()`
+4. Worker updates `state: 'stopped'`
+5. Worker kills Playwright process tree (parent + all child workers)
+6. Worker exits without uploading results
 
 ### 5. Stopped → Ready (Reset)
 
@@ -102,6 +103,25 @@ This file contains:
 
 ### Worker Side
 
+#### `index.js` (Centralized Worker Service)
+**Main entry point** that orchestrates the complete worker lifecycle:
+1. Report ready state on startup
+2. Wait for start command from orchestrator
+3. Clear command and update to testing state
+4. Spawn Playwright as child process using `child_process.spawn()`
+5. Monitor for stop command in parallel (Promise.race pattern)
+6. Wait for Playwright completion or stop signal
+7. Upload results if tests completed naturally
+8. Update final state (finished/stopped)
+9. Handle graceful shutdown (SIGTERM/SIGINT)
+
+**Key Features:**
+- Single Node.js process manages everything
+- Proper parent-child process relationship with Playwright
+- Reliable process tree termination (kills all Playwright workers)
+- No race conditions between separate scripts
+- Clear async/await execution flow
+
 #### `state-manager.js`
 Central module for all state operations:
 - `readState()` - Read current state from S3
@@ -110,25 +130,12 @@ Central module for all state operations:
 - `pollForCommand(callback)` - Continuously poll for commands
 - `clearCommand()` - Clear command after processing
 
-#### `startup.js`
-Initial worker setup:
-1. Report ready state
-2. Wait for start command
-3. Clear command and update to testing
-4. Exit (Playwright takes over)
-
-#### `command-monitor.js`
-Background process that monitors for commands:
-- Runs in parallel with Playwright tests
-- Polls every 5 seconds for commands
-- Handles stop command by updating state and killing tests
-
 #### `upload-results.js`
-Post-test cleanup:
-1. Upload test results to S3
-2. Check if already stopped
-3. If not stopped, update to finished
-4. Preserve stopped state if already set
+Modular upload functionality (can be imported or run standalone):
+- `uploadAllResults()` - Main function to upload logs, screenshots, and summary
+- `parsePlaywrightResults()` - Parse test results from Playwright output
+- Exports functions for use by `index.js`
+- Can still be run standalone if needed
 
 ### Orchestrator Side
 
@@ -198,20 +205,55 @@ OR:
 4. Click "Reset" → All change back to "ready"
 5. Repeat from step 2 or delete workers
 
+## Worker Execution Model
+
+### Previous Architecture (DEPRECATED)
+
+The old approach used a shell script chain:
+```bash
+"start": "node startup.js && (node command-monitor.js & playwright test) && node upload-results.js"
+```
+
+**Problems:**
+- Multiple separate Node processes couldn't coordinate
+- Background process (`command-monitor.js &`) had no parent-child relationship with Playwright
+- Shell didn't wait for all Playwright workers (5 parallel processes)
+- `upload-results.js` executed too early or never executed
+- No reliable way to kill all Playwright child processes
+- Workers never reached "finished" state reliably
+
+### Current Architecture
+
+Single centralized service:
+```bash
+"start": "node index.js"
+```
+
+**Benefits:**
+- ✅ Single Node.js process manages entire lifecycle
+- ✅ Proper parent-child relationship with Playwright
+- ✅ Reliable process tree termination
+- ✅ Guaranteed state transitions
+- ✅ No race conditions
+- ✅ Clear async/await flow
+- ✅ Better error handling
+- ✅ Easier debugging
+
 ## Migration Notes
 
 ### Removed Files
-- `worker/stop-monitor.js` - Replaced by `command-monitor.js`
+- `worker/startup.js` - Logic moved to `index.js`
+- `worker/command-monitor.js` - Logic moved to `index.js`
+- `worker/stop-monitor.js` - Replaced by command monitoring in `index.js`
 - `shared/storagePaths.js::getRunControlPath()` - No longer needed
 
 ### New Files
+- `worker/index.js` - Centralized worker service (main entry point)
 - `worker/state-manager.js` - State management module
-- `worker/command-monitor.js` - Command polling service
 
 ### Modified Files
-- `worker/startup.js` - Uses state-manager
-- `worker/upload-results.js` - Preserves stopped state
-- `worker/package.json` - References command-monitor
-- `worker/Dockerfile` - Copies new files
+- `worker/upload-results.js` - Now exports functions for use as module
+- `worker/package.json` - Changed to `"start": "node index.js"`
+- `worker/Dockerfile` - Copies `index.js` instead of startup/command-monitor
 - `orchestrator/src/services/runManager.js` - Writes commands not signals
 - `web-ui/src/components/WorkerDashboard.jsx` - Shows new states
