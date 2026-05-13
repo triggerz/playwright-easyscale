@@ -236,6 +236,74 @@ class RunManager {
   }
 
   /**
+   * Send start signal to all workers
+   * @param {string} runId - Run identifier
+   */
+  async startRun(runId) {
+    const run = await this.getRun(runId);
+    if (!run) {
+      throw new Error(`Run ${runId} not found`);
+    }
+
+    console.log(`Sending start signal to run ${runId}`);
+    
+    // Write control signal to S3
+    const { uploadJSON } = require('@playwright-easyscale/shared/s3Operations');
+    const { getRunControlPath } = require('@playwright-easyscale/shared/storagePaths');
+    
+    await uploadJSON(
+      this.storageConfig,
+      getRunControlPath(runId),
+      {
+        signal: 'start',
+        timestamp: new Date().toISOString()
+      }
+    );
+    
+    await this.updateRunStatus(runId, 'running', {
+      startedAt: new Date().toISOString()
+    });
+    
+    console.log(`Start signal sent to run ${runId}`);
+  }
+
+  /**
+   * Clean up spawned worker services
+   * @param {string} runId - Run identifier
+   * @param {Object} railwayConfig - Railway configuration
+   */
+  async cleanupWorkers(runId, railwayConfig) {
+    const run = await this.getRun(runId);
+    if (!run) {
+      throw new Error(`Run ${runId} not found`);
+    }
+
+    if (!run.spawnedServices || run.spawnedServices.length === 0) {
+      console.log(`No workers to clean up for run ${runId}`);
+      return;
+    }
+
+    console.log(`Cleaning up ${run.spawnedServices.length} spawned worker services for run ${runId}`);
+    const railway = new RailwayClient(railwayConfig.apiToken);
+    
+    for (const serviceId of run.spawnedServices) {
+      try {
+        await railway.deleteService(serviceId);
+        console.log(`Deleted worker service ${serviceId}`);
+      } catch (error) {
+        console.error(`Failed to delete service ${serviceId}:`, error.message);
+      }
+    }
+    
+    await this.updateRunStatus(runId, run.status, {
+      servicesCleanedUp: true,
+      cleanedUpAt: new Date().toISOString()
+    });
+    
+    console.log(`Workers cleaned up for run ${runId}`);
+  }
+
+  /**
    * Stop a run and clean up spawned worker services
    * @param {string} runId - Run identifier
    * @param {Object} railwayConfig - Railway configuration (optional, for cleanup)
@@ -251,23 +319,8 @@ class RunManager {
     });
 
     // Clean up spawned worker services if Railway config is provided
-    if (railwayConfig && run.spawnedServices && run.spawnedServices.length > 0) {
-      console.log(`Cleaning up ${run.spawnedServices.length} spawned worker services for run ${runId}`);
-      const railway = new RailwayClient(railwayConfig.apiToken);
-      
-      for (const serviceId of run.spawnedServices) {
-        try {
-          await railway.deleteService(serviceId);
-          console.log(`Deleted worker service ${serviceId}`);
-        } catch (error) {
-          console.error(`Failed to delete service ${serviceId}:`, error.message);
-        }
-      }
-      
-      await this.updateRunStatus(runId, 'stopped', {
-        stoppedAt: new Date().toISOString(),
-        servicesCleanedUp: true
-      });
+    if (railwayConfig) {
+      await this.cleanupWorkers(runId, railwayConfig);
     }
   }
 

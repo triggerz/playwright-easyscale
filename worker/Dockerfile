@@ -23,6 +23,7 @@ COPY worker/tests ./tests
 COPY worker/helpers ./helpers
 COPY worker/playwright.config.js ./
 COPY worker/upload-results.js ./
+COPY worker/startup.js ./
 
-# Run tests
-CMD ["npm", "test"]
+# Run startup script which waits for start signal, then runs tests
+CMD ["npm", "start"]

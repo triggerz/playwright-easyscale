@@ -312,6 +312,27 @@ Output:
 node src/index.js --config=../configs/example.json
 ```
 
+## 🧪 Test User Credentials
+
+For testing purposes, here are 10 test user credentials in JSON format:
+
+```json
+[
+  {"email": "user1@example.com", "password": "TestPass123!"},
+  {"email": "user2@example.com", "password": "TestPass123!"},
+  {"email": "user3@example.com", "password": "TestPass123!"},
+  {"email": "user4@example.com", "password": "TestPass123!"},
+  {"email": "user5@example.com", "password": "TestPass123!"},
+  {"email": "user6@example.com", "password": "TestPass123!"},
+  {"email": "user7@example.com", "password": "TestPass123!"},
+  {"email": "user8@example.com", "password": "TestPass123!"},
+  {"email": "user9@example.com", "password": "TestPass123!"},
+  {"email": "user10@example.com", "password": "TestPass123!"}
+]
+```
+
+**Usage**: Copy this JSON array and paste it into the test parameters field when creating a run in the web UI.
+
 ## 🤝 Contributing
 
 This is a template repository - feel free to:

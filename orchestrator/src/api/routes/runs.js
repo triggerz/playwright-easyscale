@@ -146,6 +146,59 @@ router.get('/:runId/logs', async (req, res) => {
 });
 
 /**
+ * POST /api/runs/:runId/start
+ * Send start signal to all workers
+ */
+router.post('/:runId/start', async (req, res) => {
+  try {
+    const { runId } = req.params;
+    
+    await runManager.startRun(runId);
+    
+    res.json({ 
+      message: `Start signal sent to run ${runId}`,
+      runId 
+    });
+  } catch (error) {
+    console.error('Error starting run:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/runs/:runId/workers
+ * Delete all worker services for a run
+ */
+router.delete('/:runId/workers', async (req, res) => {
+  try {
+    const { runId } = req.params;
+    
+    // Build Railway config for cleanup
+    const railwayConfig = {
+      apiToken: process.env.RAILWAY_API_TOKEN,
+      projectId: process.env.RAILWAY_PROJECT_ID,
+      environmentId: process.env.RAILWAY_ENVIRONMENT_ID
+    };
+    
+    await runManager.cleanupWorkers(runId, railwayConfig);
+    
+    res.json({ 
+      message: `Workers for run ${runId} deleted`,
+      runId 
+    });
+  } catch (error) {
+    console.error('Error deleting workers:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+/**
  * DELETE /api/runs/:runId
  * Stop a run and clean up spawned services
  */

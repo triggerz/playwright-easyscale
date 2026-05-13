@@ -4,6 +4,7 @@
   "description": "Worker container for distributed Playwright testing",
   "main": "index.js",
   "scripts": {
+    "start": "node startup.js && playwright test && node upload-results.js",
     "test": "playwright test && node upload-results.js",
     "test:headed": "playwright test --headed",
     "upload": "node upload-results.js"
