@@ -17,36 +17,56 @@
  */
 
 const { test, expect } = require('@playwright/test');
+const { loadTestParameters } = require('../helpers/parameterLoader');
 
 // ============================================================================
-// CONFIGURATION - Customize these values for your application
+// LOAD PARAMETERS FROM METADATA FORM
 // ============================================================================
 
-const CONFIG = {
-  // Application URLs - Using Railway test-app deployment
-  // For local testing: Use http://localhost:8080
-  // For Railway: Deploy test-app and use its public URL
-  loginUrl: process.env.TEST_APP_URL || 'https://test-app-production.up.railway.app',
-  dashboardUrl: process.env.TEST_APP_URL ? `${process.env.TEST_APP_URL}/dashboard.html` : 'https://test-app-production.up.railway.app/dashboard.html',
-  
-  // Test credentials (in production, use proper secret management)
+let CONFIG = {
+  // Default values (will be overridden by metadata if provided)
+  loginUrl: process.env.TEST_APP_URL,
+  dashboardUrl: null, // Will be constructed from loginUrl
   password: 'test-password-123',
-  
-  // User email pattern (userId will be injected)
   emailPattern: (userId) => `testuser${userId}@example.com`,
-  
-  // Test behavior
   headless: true,
-  timeout: 30000, // 30 seconds per test
-  
-  // What to test
+  timeout: 30000,
   testSteps: {
     login: true,
     navigateDashboard: true,
     performAction: true,
-    logout: false // Set to true if you want to test logout
+    logout: false
   }
 };
+
+// Load parameters from S3 (set by the UI form)
+(async () => {
+  try {
+    const params = await loadTestParameters();
+    
+    // Override with form parameters if provided
+    if (params.loginUrl) {
+      CONFIG.loginUrl = params.loginUrl.startsWith('http') 
+        ? params.loginUrl 
+        : `https://${params.loginUrl}`;
+    }
+    
+    if (params.password) {
+      CONFIG.password = params.password;
+    }
+    
+    // Construct dashboard URL from login URL
+    CONFIG.dashboardUrl = CONFIG.loginUrl.replace(/\/$/, '') + '/dashboard.html';
+    
+    console.log(`\n📝 Test configuration loaded:`);
+    console.log(`   - Login URL: ${CONFIG.loginUrl}`);
+    console.log(`   - Dashboard URL: ${CONFIG.dashboardUrl}`);
+    console.log(`   - Headless: ${CONFIG.headless}`);
+    console.log(`   - Timeout: ${CONFIG.timeout}ms`);
+  } catch (error) {
+    console.error('Error loading parameters, using defaults:', error);
+  }
+})();
 
 // ============================================================================
 // DISTRIBUTED EXECUTION SETUP
@@ -158,9 +178,3 @@ test.use({
 
 // Set default timeout
 test.setTimeout(CONFIG.timeout);
-
-console.log(`\n📝 Test configuration loaded:`);
-console.log(`   - Headless: ${CONFIG.headless}`);
-console.log(`   - Timeout: ${CONFIG.timeout}ms`);
-console.log(`   - Users: ${userRangeStart}-${userRangeEnd}`);
-console.log(`\n`);
