@@ -10,7 +10,10 @@ const fs = require('fs');
 const path = require('path');
 
 async function main() {
-  console.log('\n📤 Uploading test results...\n');
+  console.log('\n========================================');
+  console.log('📤 UPLOAD-RESULTS.JS STARTED');
+  console.log(`Worker ${process.env.SHARD_INDEX || '1'} - Run ${process.env.RUN_ID}`);
+  console.log('========================================\n');
 
   // Get environment variables
   const runId = process.env.RUN_ID;
@@ -67,12 +70,17 @@ async function main() {
     console.log('📝 Uploading summary...');
     await uploadTestResults(runId, shardIndex, summary, storageConfig);
 
-    console.log('\n✅ All results uploaded successfully!\n');
-    console.log(`📊 Test Results: ${testStats.passed} passed, ${testStats.failed} failed, ${testStats.total} total\n`);
+    console.log('\n✅ All results uploaded successfully!');
+    console.log(`📊 Test Results: ${testStats.passed} passed, ${testStats.failed} failed, ${testStats.total} total`);
     
     // Update worker status to completed (or failed if any tests failed)
     const finalStatus = testStats.failed > 0 ? 'completed-with-failures' : 'completed';
+    console.log(`\n🔄 Updating worker status to: ${finalStatus}`);
     await updateWorkerStatus(finalStatus, testStats);
+    
+    console.log('\n========================================');
+    console.log('✅ UPLOAD-RESULTS.JS COMPLETED');
+    console.log('========================================\n');
   } catch (error) {
     console.error('\n❌ Upload failed:', error.message);
     console.error(error.stack);

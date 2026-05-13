@@ -134,9 +134,13 @@ async function main() {
   // Step 3: Update status to running
   await updateStatus('running');
   
+  console.log(`[Worker ${WORKER_INDEX}] ✓ Status updated to 'running'`);
   console.log(`[Worker ${WORKER_INDEX}] Starting test execution...\n`);
+  console.log(`========================================`);
+  console.log(`STARTUP.JS COMPLETED - Handing off to Playwright`);
+  console.log(`========================================\n`);
   
-  // Exit successfully - Playwright tests and stop monitor will run next
+  // Exit successfully - stop-monitor and Playwright tests will run next
   process.exit(0);
 }
 
