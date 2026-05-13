@@ -130,6 +130,10 @@ playwright-easyscale/
 │   ├── helpers/
 │   │   ├── utils.js
 │   │   └── logUpload.js
+│   ├── state-manager.js # Worker state management
+│   ├── startup.js       # Worker initialization
+│   ├── command-monitor.js # Command polling service
+│   ├── upload-results.js # Result upload handler
 │   ├── Dockerfile
 │   ├── playwright.config.js
 │   └── package.json
@@ -161,10 +165,13 @@ The orchestrator runs on your machine and:
 ### 2. Worker Containers (Railway)
 
 Each worker container:
+- Reports "ready" state when deployed
+- Waits for "start" command from orchestrator
 - Runs a subset of users (e.g., users 1-5, 6-10, etc.)
 - Executes Playwright tests in parallel
+- Can be stopped mid-execution via "stop" command
 - Uploads logs and screenshots to S3-compatible storage
-- Shuts down when complete
+- Reports "finished" or "stopped" state when complete
 
 ### 3. Distribution Example
 
@@ -257,6 +264,8 @@ Create a config file in `configs/`:
 ## 📚 Documentation
 
 - **[Setup Guide](docs/SETUP.md)** - Complete setup instructions
+- **[Architecture](ARCHITECTURE.md)** - Worker state management architecture
+- **[Web UI Setup](docs/WEB_UI_SETUP.md)** - Web dashboard setup
 - **[Contributing](CONTRIBUTING.md)** - How to contribute
 - **[License](LICENSE)** - MIT License
 
@@ -270,11 +279,16 @@ This is a functional template repository with:
 - ✅ Example tests and configuration
 - ✅ Documentation and setup guides
 
+**✅ Recently Added**:
+- Web UI dashboard for managing test runs
+- Worker state management (ready/testing/finished/stopped)
+- Start/Stop/Reset controls for test runs
+- Real-time worker status monitoring
+
 **⚠️ Not Yet Implemented**:
-- Automatic monitoring and cleanup (manual cleanup required)
-- Real-time log streaming
-- Web UI dashboard
+- Real-time log streaming in UI
 - Advanced error recovery
+- Automatic retry logic
 
 ## 🎓 Example Usage
 

@@ -176,16 +176,31 @@ node src/index.js --config=../configs/my-test.json
 The orchestrator will:
 1. Calculate the distribution (e.g., 100 users ÷ 5 = 20 containers)
 2. Deploy 20 containers to Railway
-3. Each container runs tests for its user range
-4. Results are uploaded to storage
-5. Containers shut down when complete
+3. Each container reports "ready" state
+4. Use the Web UI to start tests (or use API)
+5. Workers execute tests for their user range
+6. Results are uploaded to storage
+7. Workers report "finished" or "stopped" state
+
+**Note**: Workers wait for a "start" command before running tests. Use the Web UI dashboard to control test execution.
 
 ---
 
 ## 📊 Monitoring Results
 
+### Web UI Dashboard
+
+Access the Web UI to:
+- View worker status in real-time (ready/testing/finished/stopped)
+- Start/Stop/Reset test runs
+- Monitor test progress
+- Delete workers when complete
+
+See [WEB_UI_SETUP.md](WEB_UI_SETUP.md) for setup instructions.
+
 ### View Logs
 
+- **Web UI**: Real-time worker status monitoring
 - **Railway Dashboard**: View container logs in real-time
 - **Orchestrator Logs**: Check `orchestrator/logs/orchestrator-{runId}.log`
 - **Storage**: Download results from your S3-compatible storage bucket
@@ -328,6 +343,8 @@ This is normal! Your local machine may not have enough resources. The whole poin
 ## 📚 Next Steps
 
 - Read the [README](../README.md) for architecture overview
+- Check [ARCHITECTURE.md](../ARCHITECTURE.md) for worker state management details
+- See [WEB_UI_SETUP.md](WEB_UI_SETUP.md) for dashboard setup
 - Check [CONTRIBUTING.md](../CONTRIBUTING.md) for contribution guidelines
 - Join [Discussions](https://github.com/triggerz/playwright-easyscale/discussions) for help
 

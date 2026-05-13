@@ -24,7 +24,8 @@ COPY worker/helpers ./helpers
 COPY worker/playwright.config.js ./
 COPY worker/upload-results.js ./
 COPY worker/startup.js ./
-COPY worker/stop-monitor.js ./
+COPY worker/command-monitor.js ./
+COPY worker/state-manager.js ./
 
 # Run startup script which waits for start signal, then runs tests
 CMD ["npm", "start"]

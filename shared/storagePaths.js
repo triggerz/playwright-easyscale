@@ -86,15 +86,6 @@ function getResultsPrefix(runId) {
   return `results/${runId}/`;
 }
 
-/**
- * Get path for run control signals
- * @param {string} runId - Run identifier
- * @returns {string} S3 key path
- */
-function getRunControlPath(runId) {
-  return `runs/${runId}/control.json`;
-}
-
 module.exports = {
   getRunMetadataPath,
   getUserParametersPath,
@@ -104,6 +95,5 @@ module.exports = {
   getRunsPrefix,
   getLogsPrefix,
   getWorkerLogPath,
-  getResultsPrefix,
-  getRunControlPath
+  getResultsPrefix
 };

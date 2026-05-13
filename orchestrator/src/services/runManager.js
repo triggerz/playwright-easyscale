@@ -236,7 +236,7 @@ class RunManager {
   }
 
   /**
-   * Send start signal to all workers
+   * Send start command to all workers
    * @param {string} runId - Run identifier
    */
   async startRun(runId) {
@@ -245,26 +245,24 @@ class RunManager {
       throw new Error(`Run ${runId} not found`);
     }
 
-    console.log(`Sending start signal to run ${runId}`);
+    console.log(`Sending start command to all workers for run ${runId}`);
     
-    // Write control signal to S3
-    const { uploadJSON } = require('@playwright-easyscale/shared/s3Operations');
-    const { getRunControlPath } = require('@playwright-easyscale/shared/storagePaths');
+    // Get all workers and send start command to each
+    const workers = await this.getWorkers(runId);
     
-    await uploadJSON(
-      this.storageConfig,
-      getRunControlPath(runId),
-      {
-        signal: 'start',
-        timestamp: new Date().toISOString()
-      }
-    );
+    for (const worker of workers) {
+      await this.updateWorkerStatus(runId, worker.index, {
+        ...worker,
+        command: 'start'
+      });
+      console.log(`  ✓ Start command sent to worker ${worker.index}`);
+    }
     
     await this.updateRunStatus(runId, 'running', {
       startedAt: new Date().toISOString()
     });
     
-    console.log(`Start signal sent to run ${runId}`);
+    console.log(`Start command sent to ${workers.length} workers`);
   }
 
   /**
@@ -326,7 +324,7 @@ class RunManager {
   }
 
   /**
-   * Stop a run by sending stop signal to workers
+   * Stop a run by sending stop command to workers
    * @param {string} runId - Run identifier
    */
   async stopRun(runId) {
@@ -335,30 +333,33 @@ class RunManager {
       throw new Error(`Run ${runId} not found`);
     }
 
-    console.log(`Sending stop signal to run ${runId}`);
+    console.log(`Sending stop command to all workers for run ${runId}`);
     
-    // Write stop signal to S3
-    const { uploadJSON } = require('@playwright-easyscale/shared/s3Operations');
-    const { getRunControlPath } = require('@playwright-easyscale/shared/storagePaths');
+    // Get all workers and send stop command to each
+    const workers = await this.getWorkers(runId);
     
-    await uploadJSON(
-      this.storageConfig,
-      getRunControlPath(runId),
-      {
-        signal: 'stop',
-        timestamp: new Date().toISOString()
+    for (const worker of workers) {
+      // Only send stop command to workers that are testing
+      if (worker.state === 'testing') {
+        await this.updateWorkerStatus(runId, worker.index, {
+          ...worker,
+          command: 'stop'
+        });
+        console.log(`  ✓ Stop command sent to worker ${worker.index}`);
+      } else {
+        console.log(`  - Worker ${worker.index} not testing (state: ${worker.state}), skipping`);
       }
-    );
+    }
     
-    await this.updateRunStatus(runId, 'stopped', {
-      stoppedAt: new Date().toISOString()
+    await this.updateRunStatus(runId, 'stopping', {
+      stoppingAt: new Date().toISOString()
     });
     
-    console.log(`Stop signal sent to run ${runId}`);
+    console.log(`Stop command sent to workers`);
   }
 
   /**
-   * Reset a run by clearing stop signal and resetting workers to ready
+   * Reset a run by clearing commands and resetting workers to ready
    * @param {string} runId - Run identifier
    */
   async resetRun(runId) {
@@ -369,27 +370,21 @@ class RunManager {
 
     console.log(`Resetting run ${runId}`);
     
-    // Clear control signal
-    const { uploadJSON } = require('@playwright-easyscale/shared/s3Operations');
-    const { getRunControlPath } = require('@playwright-easyscale/shared/storagePaths');
-    
-    await uploadJSON(
-      this.storageConfig,
-      getRunControlPath(runId),
-      {
-        signal: 'reset',
-        timestamp: new Date().toISOString()
-      }
-    );
-    
-    // Reset all workers to ready status
+    // Reset all workers to ready state
     const workers = await this.getWorkers(runId);
     for (const worker of workers) {
-      await this.updateWorkerStatus(runId, worker.index, {
-        ...worker,
-        status: 'ready',
-        resetAt: new Date().toISOString()
-      });
+      // Only reset workers that are stopped
+      if (worker.state === 'stopped') {
+        await this.updateWorkerStatus(runId, worker.index, {
+          ...worker,
+          state: 'ready',
+          command: null,
+          resetAt: new Date().toISOString()
+        });
+        console.log(`  ✓ Worker ${worker.index} reset to ready`);
+      } else {
+        console.log(`  - Worker ${worker.index} not stopped (state: ${worker.state}), skipping`);
+      }
     }
     
     await this.updateRunStatus(runId, 'ready', {

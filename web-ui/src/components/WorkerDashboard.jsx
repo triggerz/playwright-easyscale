@@ -95,83 +95,61 @@ export default function WorkerDashboard({ runId }) {
     }
   }
 
-  const allWorkersReady = workers.length > 0 && workers.every(w => w.status === 'ready')
-  const anyWorkerRunning = workers.some(w => w.status === 'running')
-  const allWorkersFinished = workers.length > 0 && workers.every(w => ['completed', 'completed-with-failures', 'failed', 'stopped'].includes(w.status))
-  const canReset = workers.length > 0 && workers.some(w => w.status === 'stopped')
+  const allWorkersReady = workers.length > 0 && workers.every(w => w.state === 'ready')
+  const anyWorkerTesting = workers.some(w => w.state === 'testing')
+  const allWorkersFinished = workers.length > 0 && workers.every(w => ['finished', 'stopped'].includes(w.state))
+  const canReset = workers.length > 0 && workers.some(w => w.state === 'stopped')
 
-  const getStatusColor = (status) => {
-    switch (status) {
+  const getStatusColor = (state) => {
+    switch (state) {
       case 'deploying':
         return 'bg-orange-500'
       case 'ready':
         return 'bg-green-500'
-      case 'running':
+      case 'testing':
         return 'bg-blue-500'
-      case 'stopping':
-        return 'bg-yellow-500'
       case 'stopped':
         return 'bg-gray-500'
-      case 'completed':
+      case 'finished':
         return 'bg-green-600'
-      case 'completed-with-failures':
-        return 'bg-orange-600'
-      case 'failed':
-        return 'bg-red-500'
       case 'deleted':
         return 'bg-gray-700'
-      case 'pending':
-        return 'bg-yellow-500'
       default:
         return 'bg-gray-500'
     }
   }
 
-  const getStatusIcon = (status) => {
-    switch (status) {
+  const getStatusIcon = (state) => {
+    switch (state) {
       case 'deploying':
         return '🚀'
       case 'ready':
         return '👷'
-      case 'running':
+      case 'testing':
         return '⚡'
-      case 'stopping':
-        return '⏸️'
       case 'stopped':
         return '⏹️'
-      case 'completed':
+      case 'finished':
         return '✅'
-      case 'completed-with-failures':
-        return '⚠️'
-      case 'failed':
-        return '❌'
       case 'deleted':
         return '🗑️'
-      case 'pending':
-        return '⏳'
       default:
         return '❓'
     }
   }
 
-  const getContainerBgColor = (status) => {
-    switch (status) {
+  const getContainerBgColor = (state) => {
+    switch (state) {
       case 'deploying':
         return 'bg-orange-900/20 border-orange-700/50'
       case 'ready':
         return 'bg-green-900/20 border-green-700/50'
-      case 'running':
+      case 'testing':
         return 'bg-blue-900/20 border-blue-700/50'
-      case 'stopping':
-        return 'bg-yellow-900/20 border-yellow-700/50'
       case 'stopped':
         return 'bg-gray-900/20 border-gray-700/50'
-      case 'completed':
+      case 'finished':
         return 'bg-green-900/30 border-green-700'
-      case 'completed-with-failures':
-        return 'bg-orange-900/30 border-orange-700'
-      case 'failed':
-        return 'bg-red-900/20 border-red-700/50'
       case 'deleted':
         return 'bg-gray-900/30 border-gray-800'
       default:
@@ -214,11 +192,11 @@ export default function WorkerDashboard({ runId }) {
           {workers.map((worker) => (
             <div
               key={worker.index}
-              className={`rounded-lg p-4 border ${getContainerBgColor(worker.status)}`}
+              className={`rounded-lg p-4 border ${getContainerBgColor(worker.state || worker.status)}`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <span className="text-2xl">{getStatusIcon(worker.status)}</span>
+                  <span className="text-2xl">{getStatusIcon(worker.state || worker.status)}</span>
                   <div>
                     <h3 className="font-semibold">
                       Worker {worker.index}
@@ -229,8 +207,8 @@ export default function WorkerDashboard({ runId }) {
                   </div>
                 </div>
                 <div className="text-right">
-                   <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(worker.status)} text-white`}>
-                     {worker.status}
+                   <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(worker.state || worker.status)} text-white`}>
+                     {worker.state || worker.status}
                    </span>
                    {(worker.passed !== undefined || worker.failed !== undefined) && (
                      <p className="text-xs text-gray-400 mt-1">
@@ -265,7 +243,7 @@ export default function WorkerDashboard({ runId }) {
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleStartTests}
-                disabled={!allWorkersReady || anyWorkerRunning || startingTests}
+                disabled={!allWorkersReady || anyWorkerTesting || startingTests}
                 className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
               >
                 {startingTests ? (
@@ -283,7 +261,7 @@ export default function WorkerDashboard({ runId }) {
               
               <button
                 onClick={handleStopTests}
-                disabled={!anyWorkerRunning || stoppingTests}
+                disabled={!anyWorkerTesting || stoppingTests}
                 className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
               >
                 {stoppingTests ? (
@@ -351,7 +329,7 @@ export default function WorkerDashboard({ runId }) {
               </p>
             )}
             
-            {anyWorkerRunning && (
+            {anyWorkerTesting && (
               <p className="text-blue-400">
                 ⚡ Tests running... Click "Stop Tests" to halt execution.
               </p>
@@ -383,21 +361,21 @@ export default function WorkerDashboard({ runId }) {
           </div>
           <div>
             <p className="text-2xl font-bold text-green-400">
-              {workers.filter(w => w.status === 'completed' || w.status === 'completed-with-failures').length}
+              {workers.filter(w => w.state === 'finished').length}
             </p>
-            <p className="text-xs text-gray-400">Completed</p>
+            <p className="text-xs text-gray-400">Finished</p>
           </div>
           <div>
             <p className="text-2xl font-bold text-blue-400">
-              {workers.filter(w => w.status === 'running').length}
+              {workers.filter(w => w.state === 'testing').length}
             </p>
-            <p className="text-xs text-gray-400">Running</p>
+            <p className="text-xs text-gray-400">Testing</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-red-400">
-              {workers.filter(w => w.status === 'failed').length}
+            <p className="text-2xl font-bold text-gray-400">
+              {workers.filter(w => w.state === 'stopped').length}
             </p>
-            <p className="text-xs text-gray-400">Failed</p>
+            <p className="text-xs text-gray-400">Stopped</p>
           </div>
         </div>
       )}

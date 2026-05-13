@@ -73,10 +73,24 @@ async function main() {
     console.log('\n✅ All results uploaded successfully!');
     console.log(`📊 Test Results: ${testStats.passed} passed, ${testStats.failed} failed, ${testStats.total} total`);
     
-    // Update worker status to completed (or failed if any tests failed)
-    const finalStatus = testStats.failed > 0 ? 'completed-with-failures' : 'completed';
-    console.log(`\n🔄 Updating worker status to: ${finalStatus}`);
-    await updateWorkerStatus(finalStatus, testStats);
+    // Check if we were stopped, otherwise mark as finished
+    const { readState, updateState } = require('./state-manager');
+    const currentState = await readState();
+    
+    let finalState;
+    if (currentState && currentState.state === 'stopped') {
+      // Already stopped, don't overwrite
+      finalState = 'stopped';
+      console.log(`\n✓ Worker already in 'stopped' state, preserving it`);
+    } else {
+      // Mark as finished
+      finalState = 'finished';
+      console.log(`\n🔄 Updating worker state to: ${finalState}`);
+      await updateState(finalState, {
+        ...testStats,
+        finishedAt: new Date().toISOString()
+      });
+    }
     
     console.log('\n========================================');
     console.log('✅ UPLOAD-RESULTS.JS COMPLETED');
@@ -139,47 +153,5 @@ function parsePlaywrightResults() {
   };
 }
 
-/**
- * Update worker status in S3
- */
-async function updateWorkerStatus(status, additionalData = {}) {
-  try {
-    const { uploadJSON, downloadJSON } = require('@playwright-easyscale/shared/s3Operations');
-    const { getWorkerStatusPath } = require('@playwright-easyscale/shared/storagePaths');
-    
-    const runId = process.env.RUN_ID;
-    const shardIndex = process.env.SHARD_INDEX || '1';
-    const storageConfig = {
-      endpoint: process.env.S3_ENDPOINT,
-      accessKey: process.env.S3_ACCESS_KEY,
-      secretKey: process.env.S3_SECRET_KEY,
-      bucket: process.env.S3_BUCKET,
-      region: process.env.S3_REGION || 'auto'
-    };
-    
-    // Get current status
-    const currentStatus = await downloadJSON(
-      storageConfig,
-      getWorkerStatusPath(runId, shardIndex)
-    );
-    
-    // Update with new status
-    await uploadJSON(
-      storageConfig,
-      getWorkerStatusPath(runId, shardIndex),
-      {
-        ...currentStatus,
-        status,
-        ...additionalData,
-        lastUpdated: new Date().toISOString(),
-        completedAt: new Date().toISOString()
-      }
-    );
-    
-    console.log(`✓ Worker status updated to: ${status}`);
-  } catch (error) {
-    console.error('Failed to update worker status:', error.message);
-  }
-}
 
 main();
