@@ -57,7 +57,8 @@ async function uploadLogs(runId, shardIndex, logDir, config) {
 
   for (const file of files) {
     const filePath = path.join(logDir, file);
-    const key = `${runId}/container-${shardIndex}/${file}`;
+    // Use logs/ prefix to match API expectations
+    const key = `logs/${runId}/worker-${shardIndex}-${file}`;
     
     console.log(`Uploading ${file} to ${key}...`);
     uploadPromises.push(uploadFile(filePath, key, config));
@@ -82,18 +83,24 @@ async function uploadScreenshots(runId, shardIndex, screenshotDir, config) {
   }
 
   const files = getAllFiles(screenshotDir);
+  const screenshotFiles = files.filter(f => {
+    const ext = path.extname(f).toLowerCase();
+    return ['.png', '.jpg', '.jpeg', '.gif', '.webm', '.mp4'].includes(ext);
+  });
+  
   const uploadPromises = [];
 
-  for (const file of files) {
+  for (const file of screenshotFiles) {
     const relativePath = path.relative(screenshotDir, file);
-    const key = `${runId}/container-${shardIndex}/screenshots/${relativePath}`;
+    // Use results/ prefix for screenshots
+    const key = `results/${runId}/worker-${shardIndex}/screenshots/${relativePath}`;
     
     console.log(`Uploading screenshot ${relativePath}...`);
     uploadPromises.push(uploadFile(file, key, config));
   }
 
   await Promise.all(uploadPromises);
-  console.log(`Uploaded ${files.length} screenshots to storage`);
+  console.log(`Uploaded ${screenshotFiles.length} screenshots to storage`);
 }
 
 /**
@@ -115,7 +122,8 @@ async function uploadTestResults(runId, shardIndex, results, config) {
     forcePathStyle: true
   });
 
-  const key = `${runId}/container-${shardIndex}/results.json`;
+  // Use results/ prefix for test results
+  const key = `results/${runId}/worker-${shardIndex}/results.json`;
   const content = JSON.stringify(results, null, 2);
 
   const command = new PutObjectCommand({

@@ -477,9 +477,12 @@ class RunManager {
       // List all log files for this run
       const objects = await listS3Objects(this.storageConfig, getLogsPrefix(runId));
       
+      console.log(`Found ${objects.length} log objects for run ${runId}`);
+      
       const logs = [];
       for (const obj of objects) {
         if (obj.Key.endsWith('.log') || obj.Key.endsWith('.json')) {
+          console.log(`Processing log file: ${obj.Key}`);
           const content = await downloadFromS3(this.storageConfig, obj.Key);
           
           // Parse log content (assuming JSON lines format)
@@ -500,9 +503,96 @@ class RunManager {
         }
       }
       
+      console.log(`Returning ${logs.length} log entries`);
       return logs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     } catch (error) {
       console.error('Error loading logs from storage:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get test results for a run from S3 storage
+   * @param {string} runId - Run identifier
+   * @returns {Array} Array of worker results
+   */
+  async getRunResults(runId) {
+    try {
+      const { getResultsPrefix } = require('@playwright-easyscale/shared/storagePaths');
+      
+      // List all result files for this run
+      const objects = await listS3Objects(this.storageConfig, getResultsPrefix(runId));
+      
+      console.log(`Found ${objects.length} result objects for run ${runId}`);
+      
+      const results = [];
+      for (const obj of objects) {
+        if (obj.Key.endsWith('results.json')) {
+          console.log(`Processing result file: ${obj.Key}`);
+          try {
+            const result = await downloadJSON(this.storageConfig, obj.Key);
+            results.push(result);
+          } catch (err) {
+            console.error(`Error loading result ${obj.Key}:`, err);
+          }
+        }
+      }
+      
+      // Sort by worker index
+      return results.sort((a, b) => {
+        const aIndex = parseInt(a.shardIndex) || 0;
+        const bIndex = parseInt(b.shardIndex) || 0;
+        return aIndex - bIndex;
+      });
+    } catch (error) {
+      console.error('Error loading results from storage:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get screenshots for a run from S3 storage
+   * @param {string} runId - Run identifier
+   * @returns {Array} Array of screenshot metadata
+   */
+  async getRunScreenshots(runId) {
+    try {
+      const { getResultsPrefix } = require('@playwright-easyscale/shared/storagePaths');
+      
+      // List all files in results prefix
+      const objects = await listS3Objects(this.storageConfig, getResultsPrefix(runId));
+      
+      // Filter for screenshot files
+      const screenshots = objects
+        .filter(obj => {
+          const key = obj.Key.toLowerCase();
+          return key.includes('/screenshots/') && 
+                 (key.endsWith('.png') || key.endsWith('.jpg') || key.endsWith('.jpeg') || 
+                  key.endsWith('.gif') || key.endsWith('.webm') || key.endsWith('.mp4'));
+        })
+        .map(obj => {
+          // Extract worker index from path: results/{runId}/worker-{index}/screenshots/...
+          const match = obj.Key.match(/worker-(\d+)/);
+          const workerIndex = match ? parseInt(match[1]) : 0;
+          
+          // Extract filename
+          const filename = obj.Key.split('/').pop();
+          
+          return {
+            key: obj.Key,
+            filename,
+            workerIndex,
+            size: obj.Size,
+            lastModified: obj.LastModified,
+            url: `${this.storageConfig.endpoint}/${this.storageConfig.bucket}/${obj.Key}`
+          };
+        })
+        .sort((a, b) => a.workerIndex - b.workerIndex);
+      
+      console.log(`Found ${screenshots.length} screenshots for run ${runId}`);
+      return screenshots;
+    } catch (error) {
+      console.error('Error loading screenshots from storage:', error);
       return [];
     }
   }

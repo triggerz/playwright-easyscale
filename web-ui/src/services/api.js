@@ -77,6 +77,14 @@ class ApiService {
     return this.request(`/runs/${runId}/logs`)
   }
 
+  async getResults(runId) {
+    return this.request(`/runs/${runId}/results`)
+  }
+
+  async getScreenshots(runId) {
+    return this.request(`/runs/${runId}/screenshots`)
+  }
+
   async startRun(runId) {
     return this.request(`/runs/${runId}/start`, {
       method: 'POST',

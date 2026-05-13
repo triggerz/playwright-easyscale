@@ -146,6 +146,44 @@ router.get('/:runId/logs', async (req, res) => {
 });
 
 /**
+ * GET /api/runs/:runId/results
+ * Get test results for a run from S3 storage
+ */
+router.get('/:runId/results', async (req, res) => {
+  try {
+    const { runId } = req.params;
+    const results = await runManager.getRunResults(runId);
+    
+    res.json({ results });
+  } catch (error) {
+    console.error('Error getting results:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/runs/:runId/screenshots
+ * Get screenshots for a run from S3 storage
+ */
+router.get('/:runId/screenshots', async (req, res) => {
+  try {
+    const { runId } = req.params;
+    const screenshots = await runManager.getRunScreenshots(runId);
+    
+    res.json({ screenshots });
+  } catch (error) {
+    console.error('Error getting screenshots:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+/**
  * POST /api/runs/:runId/start
  * Send start signal to all workers
  */

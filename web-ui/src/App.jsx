@@ -6,6 +6,7 @@ import WorkerDashboard from './components/WorkerDashboard'
 import LogViewer from './components/LogViewer'
 import StatsPanel from './components/StatsPanel'
 import HistoryList from './components/HistoryList'
+import TestResults from './components/TestResults'
 import { api } from './services/api'
 
 function App() {
@@ -155,6 +156,7 @@ function App() {
           <div className="space-y-6">
             <StatsPanel runId={currentRun} />
             <WorkerDashboard runId={currentRun} />
+            <TestResults runId={currentRun} />
             <LogViewer runId={currentRun} />
           </div>
         ) : view === 'history' ? (
