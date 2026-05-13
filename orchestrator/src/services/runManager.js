@@ -77,7 +77,7 @@ class RunManager {
   }
 
   /**
-   * Deploy containers for a run
+   * Deploy containers for a run using Railway's service duplication
    * @param {string} runId - Run identifier
    * @param {Object} railwayConfig - Railway configuration
    */
@@ -89,32 +89,50 @@ class RunManager {
 
     const railway = new RailwayClient(railwayConfig.apiToken);
     const deployments = [];
+    const spawnedServices = [];
 
     // Update status to deploying
     await this.updateRunStatus(runId, 'deploying');
 
+    console.log(`Deploying ${runMetadata.containers.length} worker containers for run ${runId}`);
+
     for (const container of runMetadata.containers) {
       try {
+        const workerName = `worker-${runId}-${container.index}`;
+        
         // Generate environment variables for this container
-        const env = {
-          ...generateContainerEnv(container, {
-            storage: railwayConfig.storage,
-            testFile: runMetadata.testFile
-          }, runId),
-          TEST_FILE: runMetadata.testFile,
-          RUN_ID: runId
-        };
+        const baseEnv = generateContainerEnv(container, {
+          storage: railwayConfig.storage,
+          testFile: runMetadata.testFile
+        }, runId);
 
-        // Deploy to Railway
-        const deployment = await railway.deployService(
+        // Convert to Railway variable format (each value needs to be wrapped in {value: ...})
+        const railwayVariables = {};
+        for (const [key, value] of Object.entries(baseEnv)) {
+          railwayVariables[key] = { value: String(value) };
+        }
+        
+        // Add additional required variables
+        railwayVariables.TEST_FILE = { value: runMetadata.testFile };
+        railwayVariables.RUN_ID = { value: runId };
+
+        console.log(`Spawning worker ${workerName} for users ${container.startUser}-${container.endUser}`);
+
+        // Spawn a new worker service
+        const workerService = await railway.spawnWorker(
+          railwayConfig.projectId,
           railwayConfig.environmentId,
-          railwayConfig.serviceId,
-          env
+          workerName,
+          railwayVariables
         );
+
+        spawnedServices.push(workerService.serviceId);
 
         deployments.push({
           container,
-          deployment
+          serviceId: workerService.serviceId,
+          serviceName: workerService.serviceName,
+          status: workerService.status
         });
 
         // Store initial worker status in S3
@@ -123,22 +141,39 @@ class RunManager {
           startUser: container.startUser,
           endUser: container.endUser,
           userCount: container.userCount,
-          status: 'pending',
-          deploymentId: deployment.deploymentId,
+          status: 'deploying',
+          serviceId: workerService.serviceId,
+          serviceName: workerService.serviceName,
           startedAt: new Date().toISOString()
         });
 
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Delay between spawning workers to avoid overwhelming Railway API
+        await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (error) {
-        console.error(`Error deploying container ${container.index}:`, error);
+        console.error(`Error spawning worker for container ${container.index}:`, error);
+        
+        // Clean up any services that were created before the error
+        console.log('Cleaning up spawned services due to error...');
+        for (const serviceId of spawnedServices) {
+          try {
+            await railway.deleteService(serviceId);
+            console.log(`Deleted service ${serviceId}`);
+          } catch (cleanupError) {
+            console.error(`Failed to delete service ${serviceId}:`, cleanupError.message);
+          }
+        }
+        
         throw error;
       }
     }
 
-    // Update status to running
-    await this.updateRunStatus(runId, 'running', { deployments });
+    // Update status to running with spawned service IDs
+    await this.updateRunStatus(runId, 'running', { 
+      deployments,
+      spawnedServices 
+    });
 
+    console.log(`Successfully spawned ${deployments.length} workers for run ${runId}`);
     return deployments;
   }
 
@@ -201,16 +236,39 @@ class RunManager {
   }
 
   /**
-   * Stop a run
+   * Stop a run and clean up spawned worker services
    * @param {string} runId - Run identifier
+   * @param {Object} railwayConfig - Railway configuration (optional, for cleanup)
    */
-  async stopRun(runId) {
+  async stopRun(runId, railwayConfig = null) {
+    const run = await this.getRun(runId);
+    if (!run) {
+      throw new Error(`Run ${runId} not found`);
+    }
+
     await this.updateRunStatus(runId, 'stopped', {
       stoppedAt: new Date().toISOString()
     });
 
-    // TODO: Implement actual container stopping via Railway API
-    // For now, just update the status
+    // Clean up spawned worker services if Railway config is provided
+    if (railwayConfig && run.spawnedServices && run.spawnedServices.length > 0) {
+      console.log(`Cleaning up ${run.spawnedServices.length} spawned worker services for run ${runId}`);
+      const railway = new RailwayClient(railwayConfig.apiToken);
+      
+      for (const serviceId of run.spawnedServices) {
+        try {
+          await railway.deleteService(serviceId);
+          console.log(`Deleted worker service ${serviceId}`);
+        } catch (error) {
+          console.error(`Failed to delete service ${serviceId}:`, error.message);
+        }
+      }
+      
+      await this.updateRunStatus(runId, 'stopped', {
+        stoppedAt: new Date().toISOString(),
+        servicesCleanedUp: true
+      });
+    }
   }
 
   /**

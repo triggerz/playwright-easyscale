@@ -38,8 +38,8 @@ router.post('/', async (req, res) => {
     // Deploy containers (async, don't wait)
     const railwayConfig = {
       apiToken: process.env.RAILWAY_API_TOKEN,
+      projectId: process.env.RAILWAY_PROJECT_ID,
       environmentId: process.env.RAILWAY_ENVIRONMENT_ID,
-      serviceId: process.env.RAILWAY_WORKER_SERVICE_ID || process.env.RAILWAY_SERVICE_ID, // Use worker service ID
       storage: {
         endpoint: process.env.S3_ENDPOINT,
         accessKey: process.env.S3_ACCESS_KEY,
@@ -147,15 +147,23 @@ router.get('/:runId/logs', async (req, res) => {
 
 /**
  * DELETE /api/runs/:runId
- * Stop a run
+ * Stop a run and clean up spawned services
  */
 router.delete('/:runId', async (req, res) => {
   try {
     const { runId } = req.params;
-    await runManager.stopRun(runId);
+    
+    // Build Railway config for cleanup
+    const railwayConfig = {
+      apiToken: process.env.RAILWAY_API_TOKEN,
+      projectId: process.env.RAILWAY_PROJECT_ID,
+      environmentId: process.env.RAILWAY_ENVIRONMENT_ID
+    };
+    
+    await runManager.stopRun(runId, railwayConfig);
     
     res.json({ 
-      message: `Run ${runId} stopped`,
+      message: `Run ${runId} stopped and services cleaned up`,
       runId 
     });
   } catch (error) {

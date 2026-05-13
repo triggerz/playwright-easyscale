@@ -50,80 +50,202 @@ class RailwayClient {
   }
 
   /**
-   * Deploy a service with environment variables
+   * Create a new service (duplicate worker)
+   * @param {string} projectId - Railway project ID
+   * @param {string} name - Service name
+   * @returns {Promise<Object>} Created service info
+   */
+  async createService(projectId, name) {
+    const mutation = `
+      mutation serviceCreate($input: ServiceCreateInput!) {
+        serviceCreate(input: $input) {
+          id
+          name
+          icon
+          templateId
+          templateServiceId
+          createdAt
+          projectId
+          featureFlags
+          templateThreadSlug
+          hasHiddenRegistryCredentialsFromTemplate
+        }
+      }
+    `;
+
+    const data = await this.query(mutation, {
+      input: {
+        name: name,
+        icon: null,
+        projectId: projectId,
+        environmentId: null,
+        templateServiceId: null,
+        templateId: null
+      }
+    });
+
+    console.log(`Created service: ${data.serviceCreate.name} (${data.serviceCreate.id})`);
+    return data.serviceCreate;
+  }
+
+  /**
+   * Stage service configuration for an environment
    * @param {string} environmentId - Railway environment ID
    * @param {string} serviceId - Railway service ID
-   * @param {Object} environmentVariables - Environment variables
-   * @returns {Promise<Object>} Deployment info
+   * @param {Object} config - Service configuration
+   * @returns {Promise<Object>} Staged changes info
    */
-  async deployService(environmentId, serviceId, environmentVariables) {
-    // First, update environment variables
-    await this.updateEnvironmentVariables(environmentId, serviceId, environmentVariables);
-
-    // Then trigger a deployment using the correct mutation
+  async stageServiceConfiguration(environmentId, serviceId, config) {
     const mutation = `
-      mutation ServiceInstanceRedeploy($environmentId: String!, $serviceId: String!) {
-        serviceInstanceRedeploy(environmentId: $environmentId, serviceId: $serviceId)
+      mutation stageEnvironmentChanges($environmentId: String!, $payload: EnvironmentConfig!, $merge: Boolean) {
+        environmentStageChanges(
+          environmentId: $environmentId
+          input: $payload
+          merge: $merge
+        ) {
+          id
+        }
+      }
+    `;
+
+    // Build the payload structure
+    const payload = {
+      services: {
+        [serviceId]: {
+          isCreated: true,
+          source: config.source || {
+            repo: "triggerz/playwright-easyscale",
+            branch: "master",
+            rootDirectory: "",
+            checkSuites: false
+          },
+          variables: config.variables || {},
+          build: config.build || {
+            builder: "RAILPACK",
+            buildEnvironment: "V3"
+          },
+          deploy: config.deploy || {
+            useLegacyStacker: false,
+            ipv6EgressEnabled: false,
+            runtime: "V2",
+            multiRegionConfig: {
+              "europe-west4-drams3a": {
+                numReplicas: 1
+              }
+            }
+          }
+        }
+      }
+    };
+
+    const data = await this.query(mutation, {
+      environmentId: environmentId,
+      payload: payload,
+      merge: true
+    });
+
+    console.log(`Staged configuration for service ${serviceId} in environment ${environmentId}`);
+    return data.environmentStageChanges;
+  }
+
+  /**
+   * Commit staged changes and trigger deployment
+   * @param {string} environmentId - Railway environment ID
+   * @param {boolean} skipDeploys - Whether to skip automatic deployment
+   * @returns {Promise<boolean>} Success status
+   */
+  async commitStagedChanges(environmentId, skipDeploys = false) {
+    const mutation = `
+      mutation environmentPatchCommitStaged($environmentId: String!, $message: String, $skipDeploys: Boolean) {
+        environmentPatchCommitStaged(
+          environmentId: $environmentId
+          commitMessage: $message
+          skipDeploys: $skipDeploys
+        )
       }
     `;
 
     const data = await this.query(mutation, {
       environmentId: environmentId,
-      serviceId: serviceId
+      message: null,
+      skipDeploys: skipDeploys
     });
 
+    console.log(`Committed staged changes for environment ${environmentId}`);
+    return data.environmentPatchCommitStaged;
+  }
+
+  /**
+   * Spawn a new worker service with specific configuration
+   * @param {string} projectId - Railway project ID
+   * @param {string} environmentId - Railway environment ID
+   * @param {string} workerName - Name for the worker service
+   * @param {Object} environmentVariables - Environment variables for the worker
+   * @param {Object} sourceConfig - Source repository configuration
+   * @returns {Promise<Object>} Worker service info
+   */
+  async spawnWorker(projectId, environmentId, workerName, environmentVariables, sourceConfig = null) {
+    console.log(`Spawning worker: ${workerName}`);
+    
+    // Step 1: Create the service
+    const service = await this.createService(projectId, workerName);
+    
+    // Step 2: Stage the configuration
+    const config = {
+      source: sourceConfig || {
+        repo: "triggerz/playwright-easyscale",
+        branch: "master",
+        rootDirectory: "",
+        checkSuites: false
+      },
+      variables: {
+        ...environmentVariables,
+        RAILWAY_DOCKERFILE_PATH: { value: "/worker/Dockerfile" }
+      },
+      build: {
+        builder: "RAILPACK",
+        buildEnvironment: "V3"
+      },
+      deploy: {
+        useLegacyStacker: false,
+        ipv6EgressEnabled: false,
+        runtime: "V2",
+        multiRegionConfig: {
+          "europe-west4-drams3a": {
+            numReplicas: 1
+          }
+        }
+      }
+    };
+    
+    await this.stageServiceConfiguration(environmentId, service.id, config);
+    
+    // Step 3: Commit and deploy
+    await this.commitStagedChanges(environmentId, false);
+    
+    console.log(`Worker ${workerName} spawned successfully`);
     return {
-      deploymentId: data.serviceInstanceRedeploy,
+      serviceId: service.id,
+      serviceName: service.name,
       status: 'DEPLOYING'
     };
   }
 
   /**
-   * Update environment variables for a service
-   * @param {string} environmentId - Railway environment ID
-   * @param {string} serviceId - Railway service ID
-   * @param {Object} variables - Environment variables as key-value pairs
+   * Delete a service
+   * @param {string} serviceId - Service ID to delete
+   * @returns {Promise<boolean>} Success status
    */
-  async updateEnvironmentVariables(environmentId, serviceId, variables) {
-    // Railway API v2 requires setting variables individually
+  async deleteService(serviceId) {
     const mutation = `
-      mutation VariableUpsert($environmentId: String!, $projectId: String!, $serviceId: String!, $name: String!, $value: String!) {
-        variableUpsert(input: {
-          projectId: $projectId
-          environmentId: $environmentId
-          serviceId: $serviceId
-          name: $name
-          value: $value
-        })
+      mutation serviceDelete($id: String!) {
+        serviceDelete(id: $id)
       }
     `;
 
-    // Get projectId from environment
-    const projectId = process.env.RAILWAY_PROJECT_ID;
-    if (!projectId) {
-      throw new Error('RAILWAY_PROJECT_ID environment variable is required');
-    }
-
-    // Set each variable individually
-    for (const [key, value] of Object.entries(variables)) {
-      try {
-        console.log(`Setting variable ${key} for service ${serviceId} in environment ${environmentId}`);
-        await this.query(mutation, {
-          projectId: projectId,
-          environmentId: environmentId,
-          serviceId: serviceId,
-          name: key,
-          value: String(value)
-        });
-      } catch (error) {
-        // Log the error but continue with other variables
-        console.error(`Failed to set variable ${key}:`, error.message);
-        throw error; // Re-throw to stop deployment if variable setting fails
-      }
-      
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+    const data = await this.query(mutation, { id: serviceId });
+    console.log(`Deleted service ${serviceId}`);
+    return data.serviceDelete;
   }
 
   /**
