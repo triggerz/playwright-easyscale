@@ -317,13 +317,13 @@ export default function WorkerDashboard({ runId }) {
           
           {/* Status Messages */}
           <div className="text-sm">
-            {allWorkersReady && !anyWorkerRunning && (
+            {allWorkersReady && !anyWorkerTesting && (
               <p className="text-green-400">
                 ✓ All workers ready! Click "Start Tests" to begin.
               </p>
             )}
             
-            {!allWorkersReady && !anyWorkerRunning && !allWorkersFinished && (
+            {!allWorkersReady && !anyWorkerTesting && !allWorkersFinished && (
               <p className="text-orange-400">
                 ⏳ Waiting for workers to be ready...
               </p>
