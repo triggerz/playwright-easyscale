@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test App - Error</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .error-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .error-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        
+        .error-title {
+            color: white;
+            font-size: 32px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        
+        .error-message {
+            color: #f0f0f0;
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .error-details {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .error-code {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #ffeb3b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-box">
+            <div class="error-icon">⚠️</div>
+            <h1 class="error-title">A Random Error Has Happened!</h1>
+            <p class="error-message">
+                This should trigger a screenshot capture for investigation.
+            </p>
+            
+            <div class="error-details">
+                <p><strong>Error Type:</strong> Random Login Failure</p>
+                <p><strong>Status Code:</strong> <span class="error-code">500</span></p>
+                <p><strong>Message:</strong> The system randomly failed to process your login request.</p>
+                <p style="margin-top: 15px; font-size: 14px;">
+                    This error is intentionally triggered to demonstrate screenshot capture functionality in the Playwright EasyScale distributed testing system.
+                </p>
+            </div>
+            
+            <button class="btn-primary" onclick="window.location.href='/'">
+                Return to Login
+            </button>
+        </div>
+    </div>
+</body>
+</html>

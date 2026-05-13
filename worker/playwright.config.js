@@ -18,7 +18,7 @@ module.exports = defineConfig({
   timeout: process.env.TIMEOUT ? parseInt(process.env.TIMEOUT) : 300000,
   use: {
     headless: process.env.HEADLESS !== 'false',
-    screenshot: 'on',
+    screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'retain-on-failure'
   },

@@ -7,6 +7,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy static files
 COPY index.html /usr/share/nginx/html/
 COPY dashboard.html /usr/share/nginx/html/
+COPY error.html /usr/share/nginx/html/
 COPY app.js /usr/share/nginx/html/
 COPY styles.css /usr/share/nginx/html/
 

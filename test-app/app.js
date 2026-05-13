@@ -26,6 +26,15 @@ if (loginForm) {
         
         // Accept any email/password combination
         if (email && password) {
+            // Randomly fail 50% of login attempts to demonstrate screenshot capture
+            const shouldFail = Math.random() < 0.3;
+            
+            if (shouldFail) {
+                // Redirect to error page
+                window.location.href = '/error.html';
+                return;
+            }
+            
             // Create session
             const session = {
                 email: email,

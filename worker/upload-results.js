@@ -115,25 +115,13 @@ async function uploadAllResults() {
  * Parse Playwright test results from JSON reporter output
  */
 function parsePlaywrightResults() {
-  console.log('\n========================================');
-  console.log('🔍 DEBUG: parsePlaywrightResults() called');
-  console.log('========================================');
-  
   try {
     const resultsPath = path.join(__dirname, 'test-results', 'results.json');
-    console.log(`📁 Checking for results file at: ${resultsPath}`);
     
     // Try to read Playwright's JSON results
     if (fs.existsSync(resultsPath)) {
-      console.log('✅ Results file exists!');
-      
       const fileContent = fs.readFileSync(resultsPath, 'utf8');
-      console.log(`📄 File size: ${fileContent.length} bytes`);
-      console.log(`📄 First 500 chars: ${fileContent.substring(0, 500)}`);
-      
       const results = JSON.parse(fileContent);
-      console.log('✅ JSON parsed successfully');
-      console.log(`📊 Results structure keys: ${Object.keys(results).join(', ')}`);
       
       // Count test results from suites
       let passed = 0;
@@ -141,17 +129,10 @@ function parsePlaywrightResults() {
       let skipped = 0;
       
       if (results.suites) {
-        console.log(`📦 Found ${results.suites.length} top-level suites`);
-        
-        const countTests = (suites, depth = 0) => {
-          const indent = '  '.repeat(depth);
+        const countTests = (suites) => {
           for (const suite of suites) {
-            console.log(`${indent}📂 Suite: ${suite.title || '(no title)'}`);
-            
             if (suite.specs) {
-              console.log(`${indent}  📝 Found ${suite.specs.length} specs`);
               for (const spec of suite.specs) {
-                console.log(`${indent}    - ${spec.title}: ok=${spec.ok}`);
                 if (spec.ok) {
                   passed++;
                 } else {
@@ -160,24 +141,14 @@ function parsePlaywrightResults() {
               }
             }
             if (suite.suites) {
-              console.log(`${indent}  📦 Has ${suite.suites.length} nested suites`);
-              countTests(suite.suites, depth + 1);
+              countTests(suite.suites);
             }
           }
         };
         countTests(results.suites);
-      } else {
-        console.log('⚠️  No suites found in results');
       }
       
       const total = passed + failed + skipped;
-      
-      console.log('\n📊 FINAL COUNTS:');
-      console.log(`   Total: ${total}`);
-      console.log(`   Passed: ${passed}`);
-      console.log(`   Failed: ${failed}`);
-      console.log(`   Skipped: ${skipped}`);
-      console.log('========================================\n');
       
       return {
         total,
@@ -185,46 +156,30 @@ function parsePlaywrightResults() {
         failed,
         skipped
       };
-    } else {
-      console.log('❌ Results file does NOT exist');
-      console.log('📁 Checking test-results directory...');
+    }
+    
+    // Fallback: count test result directories
+    const testResultsPath = path.join(__dirname, 'test-results');
+    if (fs.existsSync(testResultsPath)) {
+      const allItems = fs.readdirSync(testResultsPath);
+      const dirs = allItems.filter(f => {
+        const fullPath = path.join(testResultsPath, f);
+        return fs.statSync(fullPath).isDirectory();
+      });
       
-      // Fallback: count test result directories
-      const testResultsPath = path.join(__dirname, 'test-results');
-      if (fs.existsSync(testResultsPath)) {
-        console.log('✅ test-results directory exists');
-        const allItems = fs.readdirSync(testResultsPath);
-        console.log(`📂 Items in test-results: ${allItems.join(', ')}`);
-        
-        const dirs = allItems.filter(f => {
-          const fullPath = path.join(testResultsPath, f);
-          return fs.statSync(fullPath).isDirectory();
-        });
-        
-        console.log(`📁 Directories found: ${dirs.join(', ')}`);
-        
-        const failed = dirs.filter(d => d.includes('failed')).length;
-        const total = dirs.length;
-        
-        console.log(`📊 Fallback counts: ${total} total, ${total - failed} passed, ${failed} failed`);
-        
-        return {
-          total,
-          passed: total - failed,
-          failed,
-          skipped: 0
-        };
-      } else {
-        console.log('❌ test-results directory does NOT exist');
-      }
+      const failed = dirs.filter(d => d.includes('failed')).length;
+      const total = dirs.length;
+      
+      return {
+        total,
+        passed: total - failed,
+        failed,
+        skipped: 0
+      };
     }
   } catch (error) {
-    console.error('❌ ERROR in parsePlaywrightResults:', error.message);
-    console.error('Stack trace:', error.stack);
+    console.error('Error parsing test results:', error.message);
   }
-  
-  console.log('⚠️  Returning zeros (no results found)');
-  console.log('========================================\n');
   
   return {
     total: 0,

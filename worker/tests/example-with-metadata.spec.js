@@ -54,23 +54,34 @@ for (let userId = userRangeStart; userId <= userRangeEnd; userId++) {
     console.log(`[User ${userId}] Starting test with email: ${email}`);
     console.log(`[User ${userId}] Login URL: ${loginUrl}`);
 
-    // Navigate to login page
-    await page.goto(loginUrl, { timeout: 30000 });
+    try {
+      // Navigate to login page
+      await page.goto(loginUrl, { timeout: 30000 });
 
-    // Fill login form
-    await page.fill('input[name="email"]', email);
-    await page.fill('input[name="password"]', password);
-    
-    // Submit login
-    await page.click('button[type="submit"]');
+      // Fill login form
+      await page.fill('input[name="email"]', email);
+      await page.fill('input[name="password"]', password);
+      
+      // Submit login
+      await page.click('button[type="submit"]');
 
-    // Wait for navigation after login
-    await page.waitForLoadState('networkidle', { timeout: 30000 });
-    
-    // Verify we're logged in (check for dashboard or home page)
-    await expect(page).toHaveURL(/dashboard|home/, { timeout: 30000 });
+      // Wait for navigation after login
+      await page.waitForLoadState('networkidle', { timeout: 30000 });
+      
+      // Verify we're logged in (check for dashboard or home page)
+      await expect(page).toHaveURL(/dashboard|home/, { timeout: 30000 });
 
-    console.log(`[User ${userId}] ✅ Test completed successfully!\n`);
+      console.log(`[User ${userId}] ✅ Test completed successfully!\n`);
+    } catch (error) {
+      // Capture screenshot on error for investigation
+      const screenshotPath = `test-results/error-user${userId}-${Date.now()}.png`;
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      console.log(`[User ${userId}] ❌ Test failed! Screenshot saved to: ${screenshotPath}`);
+      console.log(`[User ${userId}] Error: ${error.message}\n`);
+      
+      // Re-throw the error so the test is marked as failed
+      throw error;
+    }
   });
 }
 
