@@ -201,13 +201,36 @@ class RunManager {
       // List all run metadata files from S3
       const objects = await listS3Objects(this.storageConfig, getRunsPrefix());
       
+      console.log(`Found ${objects.length} objects in runs/ prefix`);
+      
+      // Filter for run metadata files (runs/run-*.json, not subdirectories)
+      const runMetadataFiles = objects.filter(obj => {
+        const key = obj.Key;
+        // Match pattern: runs/run-TIMESTAMP-HASH.json
+        const isRunMetadata = key.startsWith('runs/run-') && key.endsWith('.json') && !key.includes('/', 5);
+        if (isRunMetadata) {
+          console.log(`Found run metadata: ${key}`);
+        }
+        return isRunMetadata;
+      });
+      
+      console.log(`Filtered to ${runMetadataFiles.length} run metadata files`);
+      
       const runs = await Promise.all(
-        objects
-          .filter(obj => obj.Key.endsWith('.json') && !obj.Key.includes('/'))
-          .map(async obj => await downloadJSON(this.storageConfig, obj.Key))
+        runMetadataFiles.map(async obj => {
+          try {
+            return await downloadJSON(this.storageConfig, obj.Key);
+          } catch (err) {
+            console.error(`Error loading run ${obj.Key}:`, err);
+            return null;
+          }
+        })
       );
       
-      return runs.sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt));
+      // Filter out any null values from failed downloads
+      const validRuns = runs.filter(run => run !== null);
+      
+      return validRuns.sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt));
     } catch (error) {
       console.error('Error loading runs from storage:', error);
       return [];
