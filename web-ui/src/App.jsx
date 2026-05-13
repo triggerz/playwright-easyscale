@@ -132,7 +132,7 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {view === 'tests' && (
+        {view === 'tests' ? (
           <div className="space-y-6">
             <TestSelector
               selectedTest={selectedTest}
@@ -145,22 +145,18 @@ function App() {
               />
             )}
           </div>
-        )}
-
-        {view === 'running' && currentRun && (
+        ) : view === 'running' && currentRun ? (
           <div className="space-y-6">
             <StatsPanel runId={currentRun} />
             <WorkerDashboard runId={currentRun} />
             <LogViewer runId={currentRun} />
           </div>
-        )}
-
-        {view === 'history' && (
+        ) : view === 'history' ? (
           <div className="bg-gray-800 rounded-lg p-6">
             <h2 className="text-xl font-semibold mb-4">Test Run History</h2>
             <p className="text-gray-400">Coming soon...</p>
           </div>
-        )}
+        ) : null}
       </main>
     </div>
   )
