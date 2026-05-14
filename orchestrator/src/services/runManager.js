@@ -198,71 +198,11 @@ class RunManager {
     });
 
     const deploymentDuration = Date.now() - startTime;
-    await logger.success('WORKERS SPAWNED', {
-      event: 'workers_spawned',
-      workersSpawned: deployments.length,
-      duration: formatDuration(deploymentDuration),
-      note: 'Workers are deploying and will report ready when fully started'
+    await logger.success('DEPLOYMENT COMPLETED', {
+      event: 'deployment_completed',
+      workersDeployed: deployments.length,
+      duration: formatDuration(deploymentDuration)
     });
-
-    // Optional: Create a group for all workers (experimental feature)
-    console.log('🔵 [GROUP] Checking if group creation is enabled...');
-    console.log('🔵 [GROUP] railwayConfig.createWorkerGroup:', railwayConfig.createWorkerGroup);
-    console.log('🔵 [GROUP] Condition result (createWorkerGroup !== false):', railwayConfig.createWorkerGroup !== false);
-    
-    if (railwayConfig.createWorkerGroup !== false) {
-      console.log('✅ [GROUP] Group creation is ENABLED - proceeding...');
-      try {
-        await logger.info('Creating worker group on Railway canvas...', {
-          event: 'group_creation_started',
-          groupName: runId
-        });
-
-        const group = await railway.createGroup(
-          railwayConfig.projectId,
-          runId
-        );
-
-        await logger.info('Adding workers to group...', {
-          event: 'group_assignment_started',
-          groupId: group.id,
-          serviceCount: spawnedServices.length
-        });
-
-        await railway.addServicesToGroup(
-          railwayConfig.environmentId,
-          spawnedServices,
-          group.id
-        );
-
-        await logger.success('Worker group created successfully', {
-          event: 'group_created',
-          groupId: group.id,
-          groupName: group.name,
-          servicesInGroup: spawnedServices.length
-        });
-
-        // Store group info in run metadata
-        await this.updateRunStatus(runId, 'running', {
-          deployments,
-          spawnedServices,
-          deploymentStartTime: startTime,
-          groupId: group.id,
-          groupName: group.name
-        });
-      } catch (error) {
-        console.error('🔴 [GROUP] Exception caught:', error);
-        await logger.warn('Failed to create worker group (non-critical)', {
-          event: 'group_creation_failed',
-          error: error.message,
-          stack: error.stack,
-          note: 'Workers are deployed successfully, but group creation failed'
-        });
-        // Don't fail the deployment - group creation is optional
-      }
-    } else {
-      console.log('⚠️ [GROUP] Group creation is DISABLED (createWorkerGroup === false)');
-    }
     
     return deployments;
   }
