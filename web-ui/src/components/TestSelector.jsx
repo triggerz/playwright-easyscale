@@ -2,20 +2,30 @@ import { useState, useEffect } from 'react'
 import { api } from '../services/api'
 
 export default function TestSelector({ selectedTest, onSelectTest }) {
+  console.log('[TestSelector] Component rendering')
+  
   const [tests, setTests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
+    console.log('[TestSelector] Component mounted - calling loadTests()')
     loadTests()
+    
+    return () => {
+      console.log('[TestSelector] Component unmounting!')
+    }
   }, [])
 
   const loadTests = async () => {
+    console.log('[TestSelector] loadTests() called - making /api/tests request')
     try {
       setLoading(true)
       const data = await api.getTests()
+      console.log('[TestSelector] Received tests data:', data)
       setTests(data.tests || [])
     } catch (err) {
+      console.error('[TestSelector] Error loading tests:', err)
       setError(err.message)
     } finally {
       setLoading(false)
