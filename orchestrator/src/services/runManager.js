@@ -203,9 +203,60 @@ class RunManager {
       workersDeployed: deployments.length,
       duration: formatDuration(deploymentDuration)
     });
+
+    // Optional: Create a group for all workers (experimental feature)
+    if (railwayConfig.createWorkerGroup !== false) {
+      try {
+        await logger.info('Creating worker group on Railway canvas...', {
+          event: 'group_creation_started',
+          groupName: runId
+        });
+
+        const group = await railway.createGroup(
+          railwayConfig.projectId,
+          runId
+        );
+
+        await logger.info('Adding workers to group...', {
+          event: 'group_assignment_started',
+          groupId: group.id,
+          serviceCount: spawnedServices.length
+        });
+
+        await railway.addServicesToGroup(
+          railwayConfig.environmentId,
+          spawnedServices,
+          group.id
+        );
+
+        await logger.success('Worker group created successfully', {
+          event: 'group_created',
+          groupId: group.id,
+          groupName: group.name,
+          servicesInGroup: spawnedServices.length
+        });
+
+        // Store group info in run metadata
+        await this.updateRunStatus(runId, 'running', {
+          deployments,
+          spawnedServices,
+          deploymentStartTime: startTime,
+          groupId: group.id,
+          groupName: group.name
+        });
+      } catch (error) {
+        await logger.warn('Failed to create worker group (non-critical)', {
+          event: 'group_creation_failed',
+          error: error.message,
+          note: 'Workers are deployed successfully, but group creation failed'
+        });
+        // Don't fail the deployment - group creation is optional
+      }
+    }
     
     return deployments;
   }
+
 
   /**
    * Get run information from S3

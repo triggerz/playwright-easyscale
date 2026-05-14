@@ -334,6 +334,115 @@ class RailwayClient {
 
     throw new Error(`Deployment timeout after ${timeoutMs}ms`);
   }
+
+  /**
+   * Create a group for organizing services on the Railway canvas
+   * NOTE: This uses the internal API endpoint, not the public v2 API
+   * @param {string} projectId - Railway project ID
+   * @param {string} groupName - Name for the group
+   * @returns {Promise<Object>} Created group info with id
+   */
+  async createGroup(projectId, groupName) {
+    const mutation = `
+      mutation groupCreate($input: GroupCreateInput!) {
+        groupCreate(input: $input) {
+          id
+          name
+          icon
+          color
+          groupId
+          isCollapsed
+        }
+      }
+    `;
+
+    // Create a separate axios client for the internal API
+    const internalClient = axios.create({
+      baseURL: 'https://backboard.railway.com/graphql/internal',
+      headers: {
+        'Authorization': `Bearer ${this.apiToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    try {
+      const response = await internalClient.post('?q=groupCreate', {
+        query: mutation,
+        variables: {
+          input: {
+            name: groupName,
+            projectId: projectId,
+            isCollapsed: false
+          }
+        },
+        operationName: 'groupCreate'
+      });
+
+      if (response.data.errors) {
+        throw new Error(`GraphQL Error: ${JSON.stringify(response.data.errors)}`);
+      }
+
+      console.log(`Created group: ${response.data.data.groupCreate.name} (${response.data.data.groupCreate.id})`);
+      return response.data.data.groupCreate;
+    } catch (error) {
+      if (error.response) {
+        throw new Error(`Railway API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Add services to a group by updating the environment configuration
+   * EXPERIMENTAL: This attempts to assign services to a group via environment config patch
+   * @param {string} environmentId - Railway environment ID
+   * @param {Array<string>} serviceIds - Array of service IDs to add to the group
+   * @param {string} groupId - Group ID to assign services to
+   * @returns {Promise<boolean>} Success status
+   */
+  async addServicesToGroup(environmentId, serviceIds, groupId) {
+    // Strategy: Use environment config patch to assign groupId to services
+    const mutation = `
+      mutation stageEnvironmentChanges($environmentId: String!, $payload: EnvironmentConfig!, $merge: Boolean) {
+        environmentStageChanges(
+          environmentId: $environmentId
+          input: $payload
+          merge: $merge
+        ) {
+          id
+        }
+      }
+    `;
+
+    // Build payload with groupId for each service
+    const servicesPayload = {};
+    for (const serviceId of serviceIds) {
+      servicesPayload[serviceId] = {
+        groupId: groupId
+      };
+    }
+
+    const payload = {
+      services: servicesPayload
+    };
+
+    try {
+      const data = await this.query(mutation, {
+        environmentId: environmentId,
+        payload: payload,
+        merge: true
+      });
+
+      // Commit the changes
+      await this.commitStagedChanges(environmentId, true); // Skip deploys for group assignment
+
+      console.log(`Added ${serviceIds.length} services to group ${groupId}`);
+      return true;
+    } catch (error) {
+      console.error(`Failed to add services to group: ${error.message}`);
+      throw error;
+    }
+  }
 }
 
 module.exports = RailwayClient;
