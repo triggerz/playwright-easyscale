@@ -565,19 +565,25 @@ class RunManager {
           console.log(`Processing log file: ${obj.Key}`);
           const content = await downloadFromS3(this.storageConfig, obj.Key);
           
-          // Parse log content (assuming JSON lines format)
-          const parsedLines = parseJSONLines(content);
-          if (parsedLines.length > 0) {
-            logs.push(...parsedLines);
+          // Try to parse as a single JSON object first (from our logger)
+          const singleObject = safeJSONParse(content);
+          if (singleObject !== null) {
+            logs.push(singleObject);
           } else {
-            // If not JSON lines, treat as plain text
-            const lines = content.split('\n').filter(line => line.trim());
-            for (const line of lines) {
-              logs.push({
-                timestamp: new Date().toISOString(),
-                level: 'info',
-                message: line
-              });
+            // If not a single JSON object, try JSON lines format
+            const parsedLines = parseJSONLines(content);
+            if (parsedLines.length > 0) {
+              logs.push(...parsedLines);
+            } else {
+              // If not JSON lines, treat as plain text
+              const lines = content.split('\n').filter(line => line.trim());
+              for (const line of lines) {
+                logs.push({
+                  timestamp: new Date().toISOString(),
+                  level: 'info',
+                  message: line
+                });
+              }
             }
           }
         }
