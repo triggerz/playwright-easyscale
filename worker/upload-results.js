@@ -8,6 +8,7 @@
  */
 
 const { uploadLogs, uploadScreenshots, uploadTestResults } = require('./helpers/logUpload');
+const { createLogger } = require('@playwright-easyscale/shared/logger');
 const fs = require('fs');
 const path = require('path');
 
@@ -78,6 +79,18 @@ async function uploadAllResults() {
 
     console.log('\n✅ All results uploaded successfully!');
     console.log(`📊 Test Results: ${testStats.passed} passed, ${testStats.failed} failed, ${testStats.total} total`);
+    
+    // Log worker finished to both console and S3
+    const logger = createLogger(null, null, { workerIndex: parseInt(shardIndex) });
+    await logger.success(`Worker ${shardIndex} finished`, {
+      event: 'worker_finished',
+      passed: testStats.passed,
+      failed: testStats.failed,
+      total: testStats.total,
+      skipped: testStats.skipped,
+      userRangeStart: process.env.USER_RANGE_START,
+      userRangeEnd: process.env.USER_RANGE_END
+    });
     
     // Check if we were stopped, otherwise mark as finished
     const { readState, updateState } = require('./state-manager');

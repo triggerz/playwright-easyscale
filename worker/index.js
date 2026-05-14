@@ -15,6 +15,7 @@
 const { spawn } = require('child_process');
 const { updateState, waitForCommand, clearCommand, pollForCommand } = require('./state-manager');
 const { uploadAllResults } = require('./upload-results');
+const { createLogger } = require('@playwright-easyscale/shared/logger');
 
 const WORKER_INDEX = parseInt(process.env.SHARD_INDEX || '1');
 const USER_RANGE_START = parseInt(process.env.USER_RANGE_START || '1');
@@ -156,7 +157,8 @@ async function runPlaywrightTests() {
  * Report worker readiness
  */
 async function reportReady() {
-  console.log(`[Worker ${WORKER_INDEX}] Reporting ready state...`);
+  // Create logger (auto-detects runId and storage from env)
+  const logger = createLogger(null, null, { workerIndex: WORKER_INDEX });
   
   await updateState('ready', {
     index: WORKER_INDEX,
@@ -167,7 +169,11 @@ async function reportReady() {
     readyAt: new Date().toISOString()
   });
   
-  console.log(`[Worker ${WORKER_INDEX}] ✓ Ready state reported`);
+  // Log to both console and S3
+  await logger.info(`Worker ${WORKER_INDEX} is READY`, {
+    event: 'worker_ready',
+    userRange: `${USER_RANGE_START}-${USER_RANGE_END}`
+  });
 }
 
 /**
@@ -203,7 +209,11 @@ async function main() {
       testingStartedAt: new Date().toISOString()
     });
     
-    console.log(`[Worker ${WORKER_INDEX}] ✓ State updated to 'testing'`);
+    // Log test start to both console and S3
+    const logger = createLogger(null, null, { workerIndex: WORKER_INDEX });
+    await logger.info(`Worker ${WORKER_INDEX} starting tests`, {
+      event: 'worker_starting'
+    });
     
     // Step 4: Run tests with stop monitoring
     const stopMonitor = monitorForStopCommand();
@@ -258,6 +268,18 @@ async function main() {
   } catch (error) {
     console.error(`\n[Worker ${WORKER_INDEX}] ❌ Fatal error:`, error);
     console.error(error.stack);
+    
+    // Log error to both console and S3
+    try {
+      const logger = createLogger(null, null, { workerIndex: WORKER_INDEX });
+      await logger.error(`Worker ${WORKER_INDEX} encountered error: ${error.message}`, {
+        event: 'worker_error',
+        error: error.message,
+        stack: error.stack
+      });
+    } catch (logError) {
+      console.error(`[Worker ${WORKER_INDEX}] Failed to log error:`, logError.message);
+    }
     
     // Try to update state to failed
     try {

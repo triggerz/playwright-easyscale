@@ -15,6 +15,7 @@ const {
   getLogsPrefix
 } = require('@playwright-easyscale/shared/storagePaths');
 const { safeJSONParse, parseJSONLines } = require('@playwright-easyscale/shared/jsonHelpers');
+const { createLogger, formatDuration, calculateSuccessRate } = require('@playwright-easyscale/shared/logger');
 
 class RunManager {
   constructor() {
@@ -82,6 +83,7 @@ class RunManager {
    * @param {Object} railwayConfig - Railway configuration
    */
   async deployRun(runId, railwayConfig) {
+    const startTime = Date.now();
     const runMetadata = await this.getRun(runId);
     if (!runMetadata) {
       throw new Error(`Run ${runId} not found`);
@@ -94,7 +96,17 @@ class RunManager {
     // Update status to deploying
     await this.updateRunStatus(runId, 'deploying');
 
-    console.log(`Deploying ${runMetadata.containers.length} worker containers for run ${runId}`);
+    // Create logger for this run (logs to both console and S3)
+    const logger = createLogger(this.storageConfig, runId, { source: 'orchestrator' });
+    
+    // Log deployment start
+    await logger.info('🚀 RUN STARTED', {
+      event: 'run_started',
+      testFile: runMetadata.testFile,
+      totalUsers: runMetadata.totalUsers,
+      totalContainers: runMetadata.containers.length,
+      usersPerContainer: runMetadata.usersPerContainer
+    });
 
     for (const container of runMetadata.containers) {
       try {
@@ -116,7 +128,12 @@ class RunManager {
         railwayVariables.TEST_FILE = { value: runMetadata.testFile };
         railwayVariables.RUN_ID = { value: runId };
 
-        console.log(`Spawning worker ${workerName} for users ${container.startUser}-${container.endUser}`);
+        await logger.info(`Spawning worker ${workerName}`, {
+          event: 'worker_spawning',
+          workerIndex: container.index,
+          userRange: `${container.startUser}-${container.endUser}`,
+          userCount: container.userCount
+        });
 
         // Spawn a new worker service
         const workerService = await railway.spawnWorker(
@@ -151,10 +168,15 @@ class RunManager {
         // Delay between spawning workers to avoid overwhelming Railway API
         await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (error) {
-        console.error(`Error spawning worker for container ${container.index}:`, error);
+        await logger.error(`Error spawning worker for container ${container.index}`, {
+          event: 'worker_spawn_error',
+          containerIndex: container.index,
+          error: error.message,
+          stack: error.stack
+        });
         
         // Clean up any services that were created before the error
-        console.log('Cleaning up spawned services due to error...');
+        await logger.info('Cleaning up spawned services due to error...');
         for (const serviceId of spawnedServices) {
           try {
             await railway.deleteService(serviceId);
@@ -171,10 +193,17 @@ class RunManager {
     // Update status to running with spawned service IDs
     await this.updateRunStatus(runId, 'running', { 
       deployments,
-      spawnedServices 
+      spawnedServices,
+      deploymentStartTime: startTime
     });
 
-    console.log(`Successfully spawned ${deployments.length} workers for run ${runId}`);
+    const deploymentDuration = Date.now() - startTime;
+    await logger.success('DEPLOYMENT COMPLETED', {
+      event: 'deployment_completed',
+      workersDeployed: deployments.length,
+      duration: formatDuration(deploymentDuration)
+    });
+    
     return deployments;
   }
 

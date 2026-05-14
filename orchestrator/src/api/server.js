@@ -10,6 +10,7 @@ const authRoutes = require('./routes/auth');
 const testsRoutes = require('./routes/tests');
 const runsRoutes = require('./routes/runs');
 const statsRoutes = require('./routes/stats');
+const runSummaryRoutes = require('./routes/runSummary');
 
 // Import middleware
 const authMiddleware = require('./middleware/auth');
@@ -51,6 +52,7 @@ app.use('/api/auth', authRoutes);
 // Protected routes (require authentication)
 app.use('/api/tests', authMiddleware, testsRoutes);
 app.use('/api/runs', authMiddleware, runsRoutes);
+app.use('/api/runs', authMiddleware, runSummaryRoutes);
 app.use('/api/stats', authMiddleware, statsRoutes);
 
 // 404 handler
