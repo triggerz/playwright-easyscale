@@ -198,14 +198,20 @@ class RunManager {
     });
 
     const deploymentDuration = Date.now() - startTime;
-    await logger.success('DEPLOYMENT COMPLETED', {
-      event: 'deployment_completed',
-      workersDeployed: deployments.length,
-      duration: formatDuration(deploymentDuration)
+    await logger.success('WORKERS SPAWNED', {
+      event: 'workers_spawned',
+      workersSpawned: deployments.length,
+      duration: formatDuration(deploymentDuration),
+      note: 'Workers are deploying and will report ready when fully started'
     });
 
     // Optional: Create a group for all workers (experimental feature)
+    console.log('🔵 [GROUP] Checking if group creation is enabled...');
+    console.log('🔵 [GROUP] railwayConfig.createWorkerGroup:', railwayConfig.createWorkerGroup);
+    console.log('🔵 [GROUP] Condition result (createWorkerGroup !== false):', railwayConfig.createWorkerGroup !== false);
+    
     if (railwayConfig.createWorkerGroup !== false) {
+      console.log('✅ [GROUP] Group creation is ENABLED - proceeding...');
       try {
         await logger.info('Creating worker group on Railway canvas...', {
           event: 'group_creation_started',
@@ -245,13 +251,17 @@ class RunManager {
           groupName: group.name
         });
       } catch (error) {
+        console.error('🔴 [GROUP] Exception caught:', error);
         await logger.warn('Failed to create worker group (non-critical)', {
           event: 'group_creation_failed',
           error: error.message,
+          stack: error.stack,
           note: 'Workers are deployed successfully, but group creation failed'
         });
         // Don't fail the deployment - group creation is optional
       }
+    } else {
+      console.log('⚠️ [GROUP] Group creation is DISABLED (createWorkerGroup === false)');
     }
     
     return deployments;

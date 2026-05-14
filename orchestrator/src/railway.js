@@ -366,6 +366,12 @@ class RailwayClient {
     });
 
     try {
+      console.log('🔵 [GROUP] Creating group with params:', {
+        projectId,
+        groupName,
+        endpoint: 'https://backboard.railway.com/graphql/internal?q=groupCreate'
+      });
+
       const response = await internalClient.post('?q=groupCreate', {
         query: mutation,
         variables: {
@@ -378,14 +384,20 @@ class RailwayClient {
         operationName: 'groupCreate'
       });
 
+      console.log('🔵 [GROUP] Raw response:', JSON.stringify(response.data, null, 2));
+
       if (response.data.errors) {
+        console.error('🔴 [GROUP] GraphQL errors:', JSON.stringify(response.data.errors, null, 2));
         throw new Error(`GraphQL Error: ${JSON.stringify(response.data.errors)}`);
       }
 
-      console.log(`Created group: ${response.data.data.groupCreate.name} (${response.data.data.groupCreate.id})`);
+      console.log(`✅ [GROUP] Created group: ${response.data.data.groupCreate.name} (${response.data.data.groupCreate.id})`);
       return response.data.data.groupCreate;
     } catch (error) {
+      console.error('🔴 [GROUP] Error creating group:', error.message);
       if (error.response) {
+        console.error('🔴 [GROUP] Response status:', error.response.status);
+        console.error('🔴 [GROUP] Response data:', JSON.stringify(error.response.data, null, 2));
         throw new Error(`Railway API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
       }
       throw error;
@@ -427,19 +439,34 @@ class RailwayClient {
     };
 
     try {
+      console.log('🔵 [GROUP] Adding services to group with params:', {
+        environmentId,
+        groupId,
+        serviceCount: serviceIds.length,
+        serviceIds: serviceIds
+      });
+      console.log('🔵 [GROUP] Payload:', JSON.stringify(payload, null, 2));
+
       const data = await this.query(mutation, {
         environmentId: environmentId,
         payload: payload,
         merge: true
       });
 
-      // Commit the changes
-      await this.commitStagedChanges(environmentId, true); // Skip deploys for group assignment
+      console.log('🔵 [GROUP] Stage response:', JSON.stringify(data, null, 2));
 
-      console.log(`Added ${serviceIds.length} services to group ${groupId}`);
+      // Commit the changes
+      console.log('🔵 [GROUP] Committing staged changes (skipDeploys: true)...');
+      const commitResult = await this.commitStagedChanges(environmentId, true); // Skip deploys for group assignment
+      console.log('🔵 [GROUP] Commit result:', commitResult);
+
+      console.log(`✅ [GROUP] Added ${serviceIds.length} services to group ${groupId}`);
       return true;
     } catch (error) {
-      console.error(`Failed to add services to group: ${error.message}`);
+      console.error('🔴 [GROUP] Failed to add services to group:', error.message);
+      if (error.response) {
+        console.error('🔴 [GROUP] Response data:', JSON.stringify(error.response.data, null, 2));
+      }
       throw error;
     }
   }
