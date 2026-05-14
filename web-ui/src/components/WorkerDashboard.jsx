@@ -87,7 +87,6 @@ export default function WorkerDashboard({ runId }) {
       setDeletingWorkers(true)
       setError('')
       const result = await api.deleteWorkers(runId)
-      console.log('Delete result:', result)
       await loadWorkers()
     } catch (err) {
       setError(err.message)

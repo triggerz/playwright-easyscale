@@ -559,17 +559,8 @@ class RunManager {
     try {
       const { getResultsPrefix } = require('@playwright-easyscale/shared/storagePaths');
       
-      console.log(`[getRunScreenshots] Starting for runId: ${runId}`);
-      console.log(`[getRunScreenshots] Storage config:`, {
-        endpoint: this.storageConfig?.endpoint,
-        bucket: this.storageConfig?.bucket,
-        hasAccessKey: !!this.storageConfig?.accessKey,
-        hasSecretKey: !!this.storageConfig?.secretKey
-      });
-      
       // List all files in results prefix
       const objects = await listS3Objects(this.storageConfig, getResultsPrefix(runId));
-      console.log(`[getRunScreenshots] Found ${objects.length} total objects`);
       
       // Filter for screenshot files
       const screenshotObjects = objects.filter(obj => {
@@ -578,8 +569,6 @@ class RunManager {
                (key.endsWith('.png') || key.endsWith('.jpg') || key.endsWith('.jpeg') || 
                 key.endsWith('.gif') || key.endsWith('.webm') || key.endsWith('.mp4'));
       });
-      
-      console.log(`[getRunScreenshots] Found ${screenshotObjects.length} screenshot files`);
       
       // Generate presigned URLs for each screenshot (1 hour expiration)
       const screenshots = await Promise.all(
@@ -591,12 +580,9 @@ class RunManager {
           // Extract filename
           const filename = obj.Key.split('/').pop();
           
-          console.log(`[getRunScreenshots] Generating presigned URL for: ${obj.Key}`);
-          
           try {
             // Generate presigned URL
             const presignedUrl = await getPresignedUrl(this.storageConfig, obj.Key, 3600);
-            console.log(`[getRunScreenshots] Generated presigned URL: ${presignedUrl.substring(0, 100)}...`);
             
             return {
               key: obj.Key,
@@ -607,7 +593,7 @@ class RunManager {
               url: presignedUrl
             };
           } catch (err) {
-            console.error(`[getRunScreenshots] Error generating presigned URL for ${obj.Key}:`, err.message);
+            console.error(`Error generating presigned URL for ${obj.Key}:`, err.message);
             // Fallback to direct URL if presigned URL generation fails
             return {
               key: obj.Key,
@@ -623,10 +609,10 @@ class RunManager {
       
       const sortedScreenshots = screenshots.sort((a, b) => a.workerIndex - b.workerIndex);
       
-      console.log(`[getRunScreenshots] Returning ${sortedScreenshots.length} screenshots with presigned URLs`);
+      console.log(`Found ${sortedScreenshots.length} screenshots for run ${runId} with presigned URLs`);
       return sortedScreenshots;
     } catch (error) {
-      console.error('[getRunScreenshots] Error loading screenshots from storage:', error);
+      console.error('Error loading screenshots from storage:', error);
       return [];
     }
   }

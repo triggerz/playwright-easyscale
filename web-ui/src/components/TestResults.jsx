@@ -1,19 +1,43 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '../services/api'
 
-export default function TestResults({ runId }) {
+export default function TestResults({ runId, workers = [] }) {
   const [results, setResults] = useState([])
   const [screenshots, setScreenshots] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedScreenshot, setSelectedScreenshot] = useState(null)
   const [expandedWorkers, setExpandedWorkers] = useState(new Set())
+  const hasLoadedOnce = useRef(false)
+  const previousTestingState = useRef(false)
+
+  // Determine if tests are currently running
+  const anyWorkerTesting = workers.some(w => w.state === 'testing')
+  const allWorkersFinished = workers.length > 0 && workers.every(w => ['finished', 'stopped', 'deleted'].includes(w.state))
 
   useEffect(() => {
-    loadResults()
-    const interval = setInterval(loadResults, 5000) // Poll every 5 seconds
-    return () => clearInterval(interval)
-  }, [runId])
+    // Load immediately on mount
+    if (!hasLoadedOnce.current) {
+      loadResults()
+      hasLoadedOnce.current = true
+    }
+
+    // Set up polling only when tests are running
+    let interval = null
+    if (anyWorkerTesting) {
+      interval = setInterval(loadResults, 5000) // Poll every 5 seconds during testing
+    }
+
+    // Load once when tests finish (transition from testing to finished)
+    if (previousTestingState.current && !anyWorkerTesting && allWorkersFinished) {
+      loadResults()
+    }
+    previousTestingState.current = anyWorkerTesting
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [runId, anyWorkerTesting, allWorkersFinished])
 
   const loadResults = async () => {
     try {
@@ -110,23 +134,39 @@ export default function TestResults({ runId }) {
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-3">Screenshots ({screenshots.length})</h3>
               <div className="grid grid-cols-6 gap-2">
-                {screenshots.map((screenshot, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => setSelectedScreenshot(screenshot)}
-                    className="relative aspect-video bg-gray-900 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
-                  >
-                    <img
-                      src={screenshot.url}
-                      alt={screenshot.filename}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                      <p className="text-xs text-white truncate">W{screenshot.workerIndex}</p>
+                {screenshots.map((screenshot, idx) => {
+                  const isVideo = screenshot.filename.endsWith('.webm') || screenshot.filename.endsWith('.mp4')
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => setSelectedScreenshot(screenshot)}
+                      className="relative aspect-video bg-gray-900 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                    >
+                      {isVideo ? (
+                        <>
+                          <video
+                            src={screenshot.url}
+                            className="w-full h-full object-cover"
+                            muted
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                            <span className="text-4xl">▶️</span>
+                          </div>
+                        </>
+                      ) : (
+                        <img
+                          src={screenshot.url}
+                          alt={screenshot.filename}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                        <p className="text-xs text-white truncate">W{screenshot.workerIndex}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -244,11 +284,22 @@ export default function TestResults({ runId }) {
                   Close
                 </button>
               </div>
-              <img
-                src={selectedScreenshot.url}
-                alt={selectedScreenshot.filename}
-                className="max-w-full h-auto rounded"
-              />
+              {selectedScreenshot.filename.endsWith('.webm') || selectedScreenshot.filename.endsWith('.mp4') ? (
+                <video
+                  src={selectedScreenshot.url}
+                  controls
+                  className="max-w-full h-auto rounded"
+                  autoPlay
+                >
+                  Your browser does not support the video tag.
+                </video>
+              ) : (
+                <img
+                  src={selectedScreenshot.url}
+                  alt={selectedScreenshot.filename}
+                  className="max-w-full h-auto rounded"
+                />
+              )}
               <div className="mt-4 flex items-center justify-between text-sm text-gray-400">
                 <span>Size: {(selectedScreenshot.size / 1024).toFixed(2)} KB</span>
                 <a

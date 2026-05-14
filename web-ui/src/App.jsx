@@ -13,7 +13,29 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [selectedTest, setSelectedTest] = useState(null)
   const [currentRun, setCurrentRun] = useState(null)
+  const [workers, setWorkers] = useState([])
   const [view, setView] = useState('tests') // 'tests', 'running', 'history'
+
+  // Load workers for the current run
+  useEffect(() => {
+    if (!currentRun) {
+      setWorkers([])
+      return
+    }
+
+    const loadWorkers = async () => {
+      try {
+        const data = await api.getWorkers(currentRun)
+        setWorkers(data.workers || [])
+      } catch (err) {
+        console.error('Error loading workers:', err)
+      }
+    }
+
+    loadWorkers()
+    const interval = setInterval(loadWorkers, 3000)
+    return () => clearInterval(interval)
+  }, [currentRun])
 
   useEffect(() => {
     // Check if already authenticated
@@ -156,7 +178,7 @@ function App() {
           <div className="space-y-6">
             <StatsPanel runId={currentRun} />
             <WorkerDashboard runId={currentRun} />
-            <TestResults runId={currentRun} />
+            <TestResults runId={currentRun} workers={workers} />
             <LogViewer runId={currentRun} />
           </div>
         ) : view === 'history' ? (

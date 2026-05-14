@@ -108,13 +108,13 @@ async function pollForCommand(callback, interval = 2000) {
 /**
  * Wait for specific command
  */
-async function waitForCommand(expectedCommand, maxWaitTime = 600000) {
+async function waitForCommand(expectedCommand, maxWaitTime = null) {
   console.log(`[State Manager ${WORKER_INDEX}] Waiting for command: ${expectedCommand}`);
   
   const startTime = Date.now();
   const pollInterval = 2000;
   
-  while (Date.now() - startTime < maxWaitTime) {
+  while (true) {
     const state = await readState();
     
     if (state && state.command === expectedCommand) {
@@ -122,11 +122,14 @@ async function waitForCommand(expectedCommand, maxWaitTime = 600000) {
       return true;
     }
     
+    // Only check timeout if maxWaitTime is specified
+    if (maxWaitTime !== null && Date.now() - startTime >= maxWaitTime) {
+      console.error(`[State Manager ${WORKER_INDEX}] Timeout waiting for command: ${expectedCommand}`);
+      return false;
+    }
+    
     await new Promise(resolve => setTimeout(resolve, pollInterval));
   }
-  
-  console.error(`[State Manager ${WORKER_INDEX}] Timeout waiting for command: ${expectedCommand}`);
-  return false;
 }
 
 module.exports = {
