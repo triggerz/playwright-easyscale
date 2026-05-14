@@ -5,7 +5,7 @@
 const crypto = require('crypto');
 const { calculateDistribution, generateContainerEnv } = require('../distributor');
 const RailwayClient = require('../railway');
-const { uploadJSON, downloadJSON, listS3Objects } = require('@playwright-easyscale/shared/s3Operations');
+const { uploadJSON, downloadJSON, listS3Objects, getPresignedUrl } = require('@playwright-easyscale/shared/s3Operations');
 const { 
   getRunMetadataPath, 
   getUserParametersPath, 
@@ -551,26 +551,39 @@ class RunManager {
   }
 
   /**
-   * Get screenshots for a run from S3 storage
+   * Get screenshots for a run from S3 storage with presigned URLs
    * @param {string} runId - Run identifier
-   * @returns {Array} Array of screenshot metadata
+   * @returns {Array} Array of screenshot metadata with presigned URLs
    */
   async getRunScreenshots(runId) {
     try {
       const { getResultsPrefix } = require('@playwright-easyscale/shared/storagePaths');
       
+      console.log(`[getRunScreenshots] Starting for runId: ${runId}`);
+      console.log(`[getRunScreenshots] Storage config:`, {
+        endpoint: this.storageConfig?.endpoint,
+        bucket: this.storageConfig?.bucket,
+        hasAccessKey: !!this.storageConfig?.accessKey,
+        hasSecretKey: !!this.storageConfig?.secretKey
+      });
+      
       // List all files in results prefix
       const objects = await listS3Objects(this.storageConfig, getResultsPrefix(runId));
+      console.log(`[getRunScreenshots] Found ${objects.length} total objects`);
       
       // Filter for screenshot files
-      const screenshots = objects
-        .filter(obj => {
-          const key = obj.Key.toLowerCase();
-          return key.includes('/screenshots/') && 
-                 (key.endsWith('.png') || key.endsWith('.jpg') || key.endsWith('.jpeg') || 
-                  key.endsWith('.gif') || key.endsWith('.webm') || key.endsWith('.mp4'));
-        })
-        .map(obj => {
+      const screenshotObjects = objects.filter(obj => {
+        const key = obj.Key.toLowerCase();
+        return key.includes('/screenshots/') && 
+               (key.endsWith('.png') || key.endsWith('.jpg') || key.endsWith('.jpeg') || 
+                key.endsWith('.gif') || key.endsWith('.webm') || key.endsWith('.mp4'));
+      });
+      
+      console.log(`[getRunScreenshots] Found ${screenshotObjects.length} screenshot files`);
+      
+      // Generate presigned URLs for each screenshot (1 hour expiration)
+      const screenshots = await Promise.all(
+        screenshotObjects.map(async obj => {
           // Extract worker index from path: results/{runId}/worker-{index}/screenshots/...
           const match = obj.Key.match(/worker-(\d+)/);
           const workerIndex = match ? parseInt(match[1]) : 0;
@@ -578,21 +591,42 @@ class RunManager {
           // Extract filename
           const filename = obj.Key.split('/').pop();
           
-          return {
-            key: obj.Key,
-            filename,
-            workerIndex,
-            size: obj.Size,
-            lastModified: obj.LastModified,
-            url: `${this.storageConfig.endpoint}/${this.storageConfig.bucket}/${obj.Key}`
-          };
+          console.log(`[getRunScreenshots] Generating presigned URL for: ${obj.Key}`);
+          
+          try {
+            // Generate presigned URL
+            const presignedUrl = await getPresignedUrl(this.storageConfig, obj.Key, 3600);
+            console.log(`[getRunScreenshots] Generated presigned URL: ${presignedUrl.substring(0, 100)}...`);
+            
+            return {
+              key: obj.Key,
+              filename,
+              workerIndex,
+              size: obj.Size,
+              lastModified: obj.LastModified,
+              url: presignedUrl
+            };
+          } catch (err) {
+            console.error(`[getRunScreenshots] Error generating presigned URL for ${obj.Key}:`, err.message);
+            // Fallback to direct URL if presigned URL generation fails
+            return {
+              key: obj.Key,
+              filename,
+              workerIndex,
+              size: obj.Size,
+              lastModified: obj.LastModified,
+              url: `${this.storageConfig.endpoint}/${this.storageConfig.bucket}/${obj.Key}`
+            };
+          }
         })
-        .sort((a, b) => a.workerIndex - b.workerIndex);
+      );
       
-      console.log(`Found ${screenshots.length} screenshots for run ${runId}`);
-      return screenshots;
+      const sortedScreenshots = screenshots.sort((a, b) => a.workerIndex - b.workerIndex);
+      
+      console.log(`[getRunScreenshots] Returning ${sortedScreenshots.length} screenshots with presigned URLs`);
+      return sortedScreenshots;
     } catch (error) {
-      console.error('Error loading screenshots from storage:', error);
+      console.error('[getRunScreenshots] Error loading screenshots from storage:', error);
       return [];
     }
   }

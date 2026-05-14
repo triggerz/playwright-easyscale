@@ -168,20 +168,6 @@ export default function WorkerDashboard({ runId }) {
                     <span className="text-red-400">{worker.failed || 0} ✗</span>
                   </div>
                 )}
-
-                {/* Progress Bar */}
-                {worker.total > 0 && (
-                  <div className="mt-2">
-                    <div className="w-full bg-gray-600 rounded-full h-1.5">
-                      <div
-                        className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
-                        style={{
-                          width: `${((worker.passed + worker.failed) / worker.total) * 100}%`
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           ))}
