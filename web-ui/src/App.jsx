@@ -10,16 +10,11 @@ import TestResults from './components/TestResults'
 import { api } from './services/api'
 
 function App() {
-  console.log('[App] Component rendering')
-  
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [selectedTest, setSelectedTest] = useState(null)
   const [currentRun, setCurrentRun] = useState(null)
   const [workers, setWorkers] = useState([])
-  const [view, setView] = useState(() => {
-    console.log('[App] Initializing view state')
-    return 'tests'
-  })
+  const [view, setView] = useState('tests')
 
   // Load workers for the current run
   useEffect(() => {
@@ -43,7 +38,6 @@ function App() {
   }, [currentRun])
 
   useEffect(() => {
-    console.log('[App] Mount effect running')
     // Check if already authenticated
     const token = localStorage.getItem('auth_token')
     if (token) {
@@ -54,24 +48,16 @@ function App() {
     // Restore view and currentRun from sessionStorage
     const savedView = sessionStorage.getItem('currentView')
     const savedRunId = sessionStorage.getItem('currentRunId')
-    console.log('[App] Restoring from sessionStorage:', { savedView, savedRunId })
     if (savedView) {
-      console.log('[App] Setting view to:', savedView)
       setView(savedView)
     }
     if (savedRunId) {
-      console.log('[App] Setting currentRun to:', savedRunId)
       setCurrentRun(savedRunId)
-    }
-    
-    return () => {
-      console.log('[App] Component unmounting!')
     }
   }, [])
   
   // Persist view and currentRun to sessionStorage
   useEffect(() => {
-    console.log('[App] View changed to:', view)
     if (view) {
       sessionStorage.setItem('currentView', view)
     }

@@ -14,8 +14,6 @@ class ApiService {
   }
 
   async request(endpoint, options = {}) {
-    console.log('[API] Making request to:', endpoint, 'method:', options.method || 'GET')
-    
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -30,15 +28,12 @@ class ApiService {
       headers,
     })
 
-    console.log('[API] Response from', endpoint, '- Status:', response.status)
-
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Request failed' }))
       throw new Error(error.message || `HTTP ${response.status}`)
     }
 
     const data = await response.json()
-    console.log('[API] Response data from', endpoint, ':', data)
     return data
   }
 

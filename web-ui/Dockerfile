@@ -14,5 +14,9 @@ COPY web-ui/ .
 # Expose port
 EXPOSE 5173
 
-# Run in dev mode (reads env vars at runtime, just like orchestrator)
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Run based on NODE_ENV
+CMD if [ "$NODE_ENV" = "production" ]; then \
+      npm run build && npm install -g serve && serve -s dist -l 5173; \
+    else \
+      npm run dev -- --host 0.0.0.0; \
+    fi

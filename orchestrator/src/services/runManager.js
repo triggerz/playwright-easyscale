@@ -64,10 +64,23 @@ class RunManager {
 
     // Save test parameters for each user to S3
     for (let i = 1; i <= config.totalUsers; i++) {
+      // Deep clone parameters for this user
+      const userParams = JSON.parse(JSON.stringify(config.parameters || {}));
+      
+      // Distribute array parameters to individual users
+      // If a parameter is an array, assign the appropriate element to this user
+      for (const [key, value] of Object.entries(userParams)) {
+        if (Array.isArray(value) && value.length > 0) {
+          // Assign the appropriate array element to this user (with cycling)
+          const arrayIndex = (i - 1) % value.length;
+          userParams[key] = value[arrayIndex];
+        }
+      }
+      
       await uploadJSON(
         this.storageConfig,
         getUserParametersPath(runId, i),
-        config.parameters || {}
+        userParams
       );
     }
 
