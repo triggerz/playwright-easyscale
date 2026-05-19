@@ -30,9 +30,15 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Request logging
+// Request logging (only for non-polling endpoints to reduce noise)
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
+  // Skip logging for frequently polled endpoints
+  const skipPaths = ['/api/runs/', '/health'];
+  const shouldSkip = skipPaths.some(path => req.path.includes(path) && req.method === 'GET');
+  
+  if (!shouldSkip) {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
+  }
   next();
 });
 

@@ -114,7 +114,7 @@ class RailwayClient {
         [serviceId]: {
           isCreated: true,
           source: config.source || {
-            repo: "triggerz/playwright-easyscale",
+            repo: "triggerz/playwright-easyscale-the-key",
             branch: "master",
             rootDirectory: "",
             checkSuites: false
@@ -176,59 +176,131 @@ class RailwayClient {
   }
 
   /**
-   * Spawn a new worker service with specific configuration
+   * Spawn a new worker service with specific configuration (with retry logic)
    * @param {string} projectId - Railway project ID
    * @param {string} environmentId - Railway environment ID
    * @param {string} workerName - Name for the worker service
    * @param {Object} environmentVariables - Environment variables for the worker
    * @param {Object} sourceConfig - Source repository configuration
+   * @param {number} maxRetries - Maximum number of retry attempts (default: 3)
    * @returns {Promise<Object>} Worker service info
    */
-  async spawnWorker(projectId, environmentId, workerName, environmentVariables, sourceConfig = null) {
-    console.log(`Spawning worker: ${workerName}`);
+  async spawnWorker(projectId, environmentId, workerName, environmentVariables, sourceConfig = null, maxRetries = 3) {
+    let lastError = null;
+    let createdServiceId = null;
     
-    // Step 1: Create the service
-    const service = await this.createService(projectId, workerName);
-    
-    // Step 2: Stage the configuration
-    const config = {
-      source: sourceConfig || {
-        repo: "triggerz/playwright-easyscale",
-        branch: "master",
-        rootDirectory: "",
-        checkSuites: false
-      },
-      variables: {
-        ...environmentVariables,
-        RAILWAY_DOCKERFILE_PATH: { value: "/worker/Dockerfile" }
-      },
-      build: {
-        builder: "RAILPACK",
-        buildEnvironment: "V3"
-      },
-      deploy: {
-        useLegacyStacker: false,
-        ipv6EgressEnabled: false,
-        runtime: "V2",
-        multiRegionConfig: {
-          "europe-west4-drams3a": {
-            numReplicas: 1
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Spawning worker: ${workerName} (attempt ${attempt}/${maxRetries})`);
+        
+        // Step 1: Create the service
+        const service = await this.createService(projectId, workerName);
+        if (!service || !service.id) {
+          throw new Error('Service creation failed - no service ID returned');
+        }
+        createdServiceId = service.id;
+        
+        // Step 2: Stage the configuration
+        const config = {
+          source: sourceConfig || {
+            repo: "triggerz/playwright-easyscale-the-key",
+            branch: "master",
+            rootDirectory: "",
+            checkSuites: false
+          },
+          variables: {
+            ...environmentVariables,
+            RAILWAY_DOCKERFILE_PATH: { value: "/worker/Dockerfile" }
+          },
+          build: {
+            builder: "RAILPACK",
+            buildEnvironment: "V3"
+          },
+          deploy: {
+            useLegacyStacker: false,
+            ipv6EgressEnabled: false,
+            runtime: "V2",
+            multiRegionConfig: {
+              "europe-west4-drams3a": {
+                numReplicas: 1
+              }
+            }
+          }
+        };
+        
+        const staged = await this.stageServiceConfiguration(environmentId, service.id, config);
+        if (!staged || !staged.id) {
+          throw new Error('Failed to stage configuration - no staged changes ID returned');
+        }
+        
+        // Step 3: Commit and deploy
+        const commitId = await this.commitStagedChanges(environmentId, false);
+        if (!commitId) {
+          throw new Error('Failed to commit staged changes - no commit ID returned');
+        }
+        
+        // Step 4: Verify service exists
+        const verifiedService = await this.getService(service.id);
+        if (!verifiedService || !verifiedService.id) {
+          throw new Error(`Service ${service.id} not found after creation - verification failed`);
+        }
+        
+        console.log(`Worker ${workerName} spawned and verified successfully`);
+        return {
+          serviceId: service.id,
+          serviceName: service.name,
+          commitId: commitId,
+          status: 'DEPLOYING',
+          attempt: attempt
+        };
+        
+      } catch (error) {
+        lastError = error;
+        console.error(`Attempt ${attempt}/${maxRetries} failed for ${workerName}:`, error.message);
+        
+        // Clean up the service if it was created but subsequent steps failed
+        if (createdServiceId) {
+          try {
+            console.log(`Cleaning up failed service ${createdServiceId}...`);
+            await this.deleteService(createdServiceId);
+            createdServiceId = null;
+          } catch (cleanupError) {
+            console.error(`Failed to cleanup service ${createdServiceId}:`, cleanupError.message);
           }
         }
+        
+        // If this wasn't the last attempt, wait before retrying
+        if (attempt < maxRetries) {
+          const delayMs = attempt * 2000; // Exponential backoff: 2s, 4s, 6s
+          console.log(`Waiting ${delayMs}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
       }
-    };
+    }
     
-    await this.stageServiceConfiguration(environmentId, service.id, config);
-    
-    // Step 3: Commit and deploy
-    await this.commitStagedChanges(environmentId, false);
-    
-    console.log(`Worker ${workerName} spawned successfully`);
-    return {
-      serviceId: service.id,
-      serviceName: service.name,
-      status: 'DEPLOYING'
-    };
+    // All retries failed
+    throw new Error(`Failed to spawn worker ${workerName} after ${maxRetries} attempts. Last error: ${lastError.message}`);
+  }
+
+  /**
+   * Get service information
+   * @param {string} serviceId - Service ID
+   * @returns {Promise<Object>} Service information
+   */
+  async getService(serviceId) {
+    const query = `
+      query service($id: String!) {
+        service(id: $id) {
+          id
+          name
+          createdAt
+          projectId
+        }
+      }
+    `;
+
+    const data = await this.query(query, { id: serviceId });
+    return data.service;
   }
 
   /**

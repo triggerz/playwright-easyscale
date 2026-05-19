@@ -141,14 +141,7 @@ class RunManager {
         railwayVariables.TEST_FILE = { value: runMetadata.testFile };
         railwayVariables.RUN_ID = { value: runId };
 
-        await logger.info(`Spawning worker ${workerName}`, {
-          event: 'worker_spawning',
-          workerIndex: container.index,
-          userRange: `${container.startUser}-${container.endUser}`,
-          userCount: container.userCount
-        });
-
-        // Spawn a new worker service
+        // Spawn a new worker service (with retry and verification)
         const workerService = await railway.spawnWorker(
           railwayConfig.projectId,
           railwayConfig.environmentId,
@@ -156,16 +149,29 @@ class RunManager {
           railwayVariables
         );
 
+        // Only proceed if Railway confirmed the service was created and verified
+        if (!workerService || !workerService.serviceId) {
+          throw new Error(`Worker service creation failed - no service ID returned for ${workerName}`);
+        }
+
+        await logger.info(`Worker ${workerName} spawned and verified`, {
+          event: 'worker_verified',
+          workerIndex: container.index,
+          serviceId: workerService.serviceId,
+          attempt: workerService.attempt || 1
+        });
+
         spawnedServices.push(workerService.serviceId);
 
         deployments.push({
           container,
           serviceId: workerService.serviceId,
           serviceName: workerService.serviceName,
-          status: workerService.status
+          status: workerService.status,
+          commitId: workerService.commitId
         });
 
-        // Store initial worker status in S3
+        // Store initial worker status in S3 (only after Railway verification)
         await this.updateWorkerStatus(runId, container.index, {
           index: container.index,
           startUser: container.startUser,
@@ -175,6 +181,7 @@ class RunManager {
           command: null,
           serviceId: workerService.serviceId,
           serviceName: workerService.serviceName,
+          commitId: workerService.commitId,
           startedAt: new Date().toISOString()
         });
 
@@ -210,12 +217,31 @@ class RunManager {
       deploymentStartTime: startTime
     });
 
-    const deploymentDuration = Date.now() - startTime;
-    await logger.success('DEPLOYMENT COMPLETED', {
-      event: 'deployment_completed',
-      workersDeployed: deployments.length,
-      duration: formatDuration(deploymentDuration)
+    const spawnDuration = Date.now() - startTime;
+    await logger.info('All workers spawned, waiting for deployment...', {
+      event: 'workers_spawned',
+      workersSpawned: deployments.length,
+      duration: formatDuration(spawnDuration)
     });
+    
+    // Wait for all workers to become ready
+    try {
+      await this.waitForAllWorkersReady(runId, deployments.length, logger);
+      
+      const totalDuration = Date.now() - startTime;
+      await logger.success('DEPLOYMENT COMPLETED - All workers ready!', {
+        event: 'deployment_completed',
+        workersReady: deployments.length,
+        totalDuration: formatDuration(totalDuration),
+        spawnDuration: formatDuration(spawnDuration)
+      });
+    } catch (error) {
+      // Log the error but don't throw - deployment technically succeeded, just some workers didn't come online
+      await logger.error(`Deployment verification failed: ${error.message}`, {
+        event: 'deployment_verification_failed',
+        error: error.message
+      });
+    }
     
     return deployments;
   }
@@ -244,20 +270,12 @@ class RunManager {
       // List all run metadata files from S3
       const objects = await listS3Objects(this.storageConfig, getRunsPrefix());
       
-      console.log(`Found ${objects.length} objects in runs/ prefix`);
-      
       // Filter for run metadata files (runs/run-*.json, not subdirectories)
       const runMetadataFiles = objects.filter(obj => {
         const key = obj.Key;
         // Match pattern: runs/run-TIMESTAMP-HASH.json
-        const isRunMetadata = key.startsWith('runs/run-') && key.endsWith('.json') && !key.includes('/', 5);
-        if (isRunMetadata) {
-          console.log(`Found run metadata: ${key}`);
-        }
-        return isRunMetadata;
+        return key.startsWith('runs/run-') && key.endsWith('.json') && !key.includes('/', 5);
       });
-      
-      console.log(`Filtered to ${runMetadataFiles.length} run metadata files`);
       
       const runs = await Promise.all(
         runMetadataFiles.map(async obj => {
@@ -520,12 +538,9 @@ class RunManager {
       // List all log files for this run
       const objects = await listS3Objects(this.storageConfig, getLogsPrefix(runId));
       
-      console.log(`Found ${objects.length} log objects for run ${runId}`);
-      
       const logs = [];
       for (const obj of objects) {
         if (obj.Key.endsWith('.log') || obj.Key.endsWith('.json')) {
-          console.log(`Processing log file: ${obj.Key}`);
           const content = await downloadFromS3(this.storageConfig, obj.Key);
           
           // Try to parse as a single JSON object first (from our logger)
@@ -552,7 +567,6 @@ class RunManager {
         }
       }
       
-      console.log(`Returning ${logs.length} log entries`);
       return logs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     } catch (error) {
       console.error('Error loading logs from storage:', error);
@@ -693,19 +707,65 @@ class RunManager {
       const logsDeleted = await deleteS3ObjectsByPrefix(this.storageConfig, logsPrefix);
       console.log(`Deleted ${logsDeleted} objects from ${logsPrefix}`);
       
-      const totalDeleted = resultsDeleted + logsDeleted;
+      // Delete run metadata (includes run.json, workers/, parameters/)
+      const runPrefix = `runs/${runId}`;
+      const metadataDeleted = await deleteS3ObjectsByPrefix(this.storageConfig, runPrefix);
+      console.log(`Deleted ${metadataDeleted} metadata objects from ${runPrefix}`);
+      
+      const totalDeleted = resultsDeleted + logsDeleted + metadataDeleted;
       
       return {
         runId,
         deletedCount: totalDeleted,
         results: resultsDeleted,
         logs: logsDeleted,
+        metadata: metadataDeleted,
         message: `Deleted ${totalDeleted} objects for run ${runId}`
       };
     } catch (error) {
       console.error(`Error deleting data for run ${runId}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Wait for all workers to become ready
+   * @param {string} runId - Run identifier
+   * @param {number} expectedCount - Expected number of workers
+   * @param {Object} logger - Logger instance
+   * @param {number} timeoutMs - Timeout in milliseconds (default: 10 minutes)
+   * @returns {Promise<boolean>} True if all workers ready, throws on timeout
+   */
+  async waitForAllWorkersReady(runId, expectedCount, logger, timeoutMs = 600000) {
+    const startTime = Date.now();
+    const pollInterval = 5000; // Check every 5 seconds
+    
+    while (Date.now() - startTime < timeoutMs) {
+      const workers = await this.getWorkers(runId);
+      const readyWorkers = workers.filter(w => w.state === 'ready');
+      
+      if (readyWorkers.length === expectedCount) {
+        // All workers ready!
+        return true;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+    
+    // Timeout - identify which workers failed
+    const workers = await this.getWorkers(runId);
+    const readyWorkers = workers.filter(w => w.state === 'ready');
+    const missingWorkers = workers.filter(w => w.state !== 'ready');
+    
+    await logger.error(`Deployment timeout: ${missingWorkers.length} workers never became ready`, {
+      event: 'deployment_timeout',
+      readyCount: readyWorkers.length,
+      missingCount: missingWorkers.length,
+      missingWorkerIndices: missingWorkers.map(w => w.index),
+      missingWorkerStates: missingWorkers.map(w => ({ index: w.index, state: w.state }))
+    });
+    
+    throw new Error(`Deployment timeout: Workers ${missingWorkers.map(w => w.index).join(', ')} never became ready`);
   }
 
   /**
