@@ -215,12 +215,34 @@ async function main() {
       event: 'worker_starting'
     });
     
-    // Step 4: Run tests with stop monitoring
+    // Step 4: Start periodic screenshot upload (every 5 minutes)
+    const screenshotUploadInterval = setInterval(async () => {
+      try {
+        console.log(`[Worker ${WORKER_INDEX}] Uploading screenshots...`);
+        const { uploadScreenshots } = require('./helpers/logUpload');
+        const storageConfig = {
+          endpoint: process.env.S3_ENDPOINT,
+          accessKey: process.env.S3_ACCESS_KEY,
+          secretKey: process.env.S3_SECRET_KEY,
+          bucket: process.env.S3_BUCKET,
+          region: process.env.S3_REGION || 'auto'
+        };
+        await uploadScreenshots(process.env.RUN_ID, WORKER_INDEX.toString(), 'test-results', storageConfig);
+        console.log(`[Worker ${WORKER_INDEX}] ✓ Screenshots uploaded`);
+      } catch (error) {
+        console.error(`[Worker ${WORKER_INDEX}] Screenshot upload failed:`, error.message);
+      }
+    }, 5 * 60 * 1000); // Every 5 minutes
+    
+    // Step 5: Run tests with stop monitoring
     const stopMonitor = monitorForStopCommand();
     const testExecution = runPlaywrightTests();
     
     // Wait for either tests to complete or stop command
     const result = await Promise.race([testExecution, stopMonitor]);
+    
+    // Stop periodic screenshot upload
+    clearInterval(screenshotUploadInterval);
     
     // Stop the command monitor if still running
     if (commandPollInterval) {

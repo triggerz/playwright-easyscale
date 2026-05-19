@@ -8,8 +8,11 @@ export default function TestResults({ runId, workers = [] }) {
   const [error, setError] = useState('')
   const [selectedScreenshot, setSelectedScreenshot] = useState(null)
   const [expandedWorkers, setExpandedWorkers] = useState(new Set())
+  const [screenshotPage, setScreenshotPage] = useState(0)
   const hasLoadedOnce = useRef(false)
   const previousTestingState = useRef(false)
+  
+  const SCREENSHOTS_PER_PAGE = 20
 
   // Determine if tests are currently running
   const anyWorkerTesting = workers.some(w => w.state === 'testing')
@@ -105,8 +108,78 @@ export default function TestResults({ runId, workers = [] }) {
         </div>
       )}
 
+      {/* Screenshots Section - Independent of results */}
+      {screenshots.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold">Screenshots ({screenshots.length})</h3>
+            {screenshots.length > SCREENSHOTS_PER_PAGE && (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setScreenshotPage(Math.max(0, screenshotPage - 1))}
+                  disabled={screenshotPage === 0}
+                  className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm text-gray-400">
+                  Page {screenshotPage + 1} of {Math.ceil(screenshots.length / SCREENSHOTS_PER_PAGE)}
+                </span>
+                <button
+                  onClick={() => setScreenshotPage(Math.min(Math.ceil(screenshots.length / SCREENSHOTS_PER_PAGE) - 1, screenshotPage + 1))}
+                  disabled={screenshotPage >= Math.ceil(screenshots.length / SCREENSHOTS_PER_PAGE) - 1}
+                  className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-6 gap-2">
+            {screenshots
+              .slice(screenshotPage * SCREENSHOTS_PER_PAGE, (screenshotPage + 1) * SCREENSHOTS_PER_PAGE)
+              .map((screenshot, idx) => {
+                const isVideo = screenshot.filename.endsWith('.webm') || screenshot.filename.endsWith('.mp4')
+                return (
+                  <div
+                    key={screenshotPage * SCREENSHOTS_PER_PAGE + idx}
+                    onClick={() => setSelectedScreenshot(screenshot)}
+                    className="relative aspect-video bg-gray-900 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                  >
+                    {isVideo ? (
+                      <>
+                        <video
+                          src={screenshot.url}
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <span className="text-4xl">▶️</span>
+                        </div>
+                      </>
+                    ) : (
+                      <img
+                        src={screenshot.url}
+                        alt={screenshot.filename}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                      <p className="text-xs text-white truncate">
+                        {screenshot.userId ? `User ${screenshot.userId}` : `W${screenshot.workerIndex}`}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* Test Results Section - Independent of screenshots */}
       {results.length === 0 ? (
-        <p className="text-gray-400">No results yet...</p>
+        <p className="text-gray-400">No test results yet...</p>
       ) : (
         <>
           {/* Aggregated Summary */}
@@ -128,48 +201,6 @@ export default function TestResults({ runId, workers = [] }) {
               <p className="text-3xl font-bold text-gray-400">{totalSkipped}</p>
             </div>
           </div>
-
-          {/* Screenshots Section */}
-          {screenshots.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">Screenshots ({screenshots.length})</h3>
-              <div className="grid grid-cols-6 gap-2">
-                {screenshots.map((screenshot, idx) => {
-                  const isVideo = screenshot.filename.endsWith('.webm') || screenshot.filename.endsWith('.mp4')
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => setSelectedScreenshot(screenshot)}
-                      className="relative aspect-video bg-gray-900 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
-                    >
-                      {isVideo ? (
-                        <>
-                          <video
-                            src={screenshot.url}
-                            className="w-full h-full object-cover"
-                            muted
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                            <span className="text-4xl">▶️</span>
-                          </div>
-                        </>
-                      ) : (
-                        <img
-                          src={screenshot.url}
-                          alt={screenshot.filename}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      )}
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                        <p className="text-xs text-white truncate">W{screenshot.workerIndex}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
 
           {/* Worker Details (Collapsed by default) */}
           <details className="bg-gray-700/50 rounded-lg p-4">

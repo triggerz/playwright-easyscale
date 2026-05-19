@@ -91,6 +91,21 @@ export default function DynamicForm({ test, onStart }) {
           />
         )
 
+      case 'boolean':
+        return (
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              checked={value === true || value === 'true'}
+              onChange={(e) => updateParameter(param.key, e.target.checked)}
+              className="w-5 h-5 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-300">
+              {value === true || value === 'true' ? 'Enabled' : 'Disabled'}
+            </span>
+          </div>
+        )
+
       case 'array':
         return (
           <div className="space-y-2">

@@ -86,7 +86,16 @@ async function uploadScreenshots(runId, shardIndex, screenshotDir, config) {
   const files = getAllFiles(screenshotDir);
   const screenshotFiles = files.filter(f => {
     const ext = path.extname(f).toLowerCase();
-    return ['.png', '.jpg', '.jpeg', '.gif', '.webm', '.mp4'].includes(ext);
+    const isImageOrVideo = ['.png', '.jpg', '.jpeg', '.gif', '.webm', '.mp4'].includes(ext);
+    
+    // Exclude Playwright trace resource files to avoid uploading thousands of trace snapshots
+    const isTraceResource = f.includes('/.playwright-artifacts-') && f.includes('/traces/resources/');
+    
+    // Check file size - skip empty or tiny files (< 1KB) to avoid uploading empty videos
+    const stats = fs.statSync(f);
+    const isNotEmpty = stats.size > 1024; // 1KB minimum
+    
+    return isImageOrVideo && !isTraceResource && isNotEmpty;
   });
   
   const uploadPromises = [];

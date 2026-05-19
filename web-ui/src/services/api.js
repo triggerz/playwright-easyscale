@@ -110,6 +110,19 @@ class ApiService {
     })
   }
 
+  async deleteRunData(runId) {
+    return this.request(`/runs/${runId}/data`, {
+      method: 'DELETE',
+    })
+  }
+
+  async bulkDeleteRunData(runIds) {
+    return this.request('/runs/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ runIds }),
+    })
+  }
+
   // Stats
   async getStats() {
     return this.request('/stats')

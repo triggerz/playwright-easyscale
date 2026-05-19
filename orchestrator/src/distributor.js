@@ -51,6 +51,9 @@ function generateContainerEnv(container, config, runId) {
     SHARD_INDEX: container.shardIndex.toString(),
     SHARD_TOTAL: container.shardTotal.toString(),
     
+    // Playwright workers configuration
+    MAX_CONCURRENCY: container.userCount.toString(),
+    
     // Run identification
     RUN_ID: runId,
     

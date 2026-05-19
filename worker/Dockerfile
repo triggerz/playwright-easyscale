@@ -26,5 +26,8 @@ COPY worker/index.js ./
 COPY worker/upload-results.js ./
 COPY worker/state-manager.js ./
 
+# Create test-results directory structure for screenshots
+RUN mkdir -p test-results/screenshots
+
 # Run centralized worker service
 CMD ["npm", "start"]

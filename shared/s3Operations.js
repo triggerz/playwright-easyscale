@@ -3,7 +3,7 @@
  * Common upload, download, and list operations for S3 storage
  */
 
-const { GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { GetObjectCommand, PutObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { createS3Client, streamToString } = require('./s3Client');
 
@@ -102,11 +102,57 @@ async function getPresignedUrl(config, key, expiresIn = 3600) {
   return await getSignedUrl(client, command, { expiresIn });
 }
 
+/**
+ * Delete objects from S3 storage by prefix
+ * Deletes all objects that start with the given prefix
+ * @param {Object} config - Storage configuration
+ * @param {string} prefix - Key prefix to filter objects to delete
+ * @returns {Promise<number>} Number of objects deleted
+ */
+async function deleteS3ObjectsByPrefix(config, prefix) {
+  const client = createS3Client(config);
+  let deletedCount = 0;
+  let continuationToken = null;
+
+  do {
+    // List objects with the prefix
+    const listCommand = new ListObjectsV2Command({
+      Bucket: config.bucket,
+      Prefix: prefix,
+      ContinuationToken: continuationToken
+    });
+
+    const listResponse = await client.send(listCommand);
+    const objects = listResponse.Contents || [];
+
+    if (objects.length === 0) {
+      break;
+    }
+
+    // Delete objects in batches (S3 allows up to 1000 per request)
+    const deleteCommand = new DeleteObjectsCommand({
+      Bucket: config.bucket,
+      Delete: {
+        Objects: objects.map(obj => ({ Key: obj.Key })),
+        Quiet: true
+      }
+    });
+
+    await client.send(deleteCommand);
+    deletedCount += objects.length;
+
+    continuationToken = listResponse.NextContinuationToken;
+  } while (continuationToken);
+
+  return deletedCount;
+}
+
 module.exports = {
   uploadToS3,
   downloadFromS3,
   listS3Objects,
   uploadJSON,
   downloadJSON,
-  getPresignedUrl
+  getPresignedUrl,
+  deleteS3ObjectsByPrefix
 };

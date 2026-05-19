@@ -5,7 +5,7 @@
 const crypto = require('crypto');
 const { calculateDistribution, generateContainerEnv } = require('../distributor');
 const RailwayClient = require('../railway');
-const { uploadJSON, downloadJSON, listS3Objects, getPresignedUrl } = require('@playwright-easyscale/shared/s3Operations');
+const { uploadJSON, downloadJSON, listS3Objects, getPresignedUrl, deleteS3ObjectsByPrefix } = require('@playwright-easyscale/shared/s3Operations');
 const { 
   getRunMetadataPath, 
   getUserParametersPath, 
@@ -629,6 +629,10 @@ class RunManager {
           // Extract filename
           const filename = obj.Key.split('/').pop();
           
+          // Try to extract user ID from filename (e.g., "user-5-screenshot.png" or "User-5-step.png")
+          const userIdMatch = filename.match(/user[_-](\d+)/i);
+          const userId = userIdMatch ? parseInt(userIdMatch[1]) : null;
+          
           try {
             // Generate presigned URL
             const presignedUrl = await getPresignedUrl(this.storageConfig, obj.Key, 3600);
@@ -637,6 +641,7 @@ class RunManager {
               key: obj.Key,
               filename,
               workerIndex,
+              userId,
               size: obj.Size,
               lastModified: obj.LastModified,
               url: presignedUrl
@@ -648,6 +653,7 @@ class RunManager {
               key: obj.Key,
               filename,
               workerIndex,
+              userId,
               size: obj.Size,
               lastModified: obj.LastModified,
               url: `${this.storageConfig.endpoint}/${this.storageConfig.bucket}/${obj.Key}`
@@ -664,6 +670,70 @@ class RunManager {
       console.error('Error loading screenshots from storage:', error);
       return [];
     }
+  }
+
+  /**
+   * Delete all test data for a run from S3 storage
+   * @param {string} runId - Run identifier
+   * @returns {Promise<Object>} Deletion results
+   */
+  async deleteRunData(runId) {
+    try {
+      const { getResultsPrefix } = require('@playwright-easyscale/shared/storagePaths');
+      
+      console.log(`Deleting all data for run ${runId}...`);
+      
+      // Delete results (screenshots, test results, etc.)
+      const resultsPrefix = getResultsPrefix(runId);
+      const resultsDeleted = await deleteS3ObjectsByPrefix(this.storageConfig, resultsPrefix);
+      console.log(`Deleted ${resultsDeleted} objects from ${resultsPrefix}`);
+      
+      // Delete logs
+      const logsPrefix = getLogsPrefix(runId);
+      const logsDeleted = await deleteS3ObjectsByPrefix(this.storageConfig, logsPrefix);
+      console.log(`Deleted ${logsDeleted} objects from ${logsPrefix}`);
+      
+      const totalDeleted = resultsDeleted + logsDeleted;
+      
+      return {
+        runId,
+        deletedCount: totalDeleted,
+        results: resultsDeleted,
+        logs: logsDeleted,
+        message: `Deleted ${totalDeleted} objects for run ${runId}`
+      };
+    } catch (error) {
+      console.error(`Error deleting data for run ${runId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete test data for multiple runs in bulk
+   * @param {Array<string>} runIds - Array of run identifiers
+   * @returns {Promise<Array>} Array of deletion results
+   */
+  async bulkDeleteRunData(runIds) {
+    console.log(`Bulk deleting data for ${runIds.length} runs...`);
+    
+    const results = await Promise.all(
+      runIds.map(async runId => {
+        try {
+          return await this.deleteRunData(runId);
+        } catch (error) {
+          return {
+            runId,
+            error: error.message,
+            deletedCount: 0
+          };
+        }
+      })
+    );
+    
+    const totalDeleted = results.reduce((sum, r) => sum + (r.deletedCount || 0), 0);
+    console.log(`Bulk delete completed: ${totalDeleted} total objects deleted`);
+    
+    return results;
   }
 }
 
