@@ -123,6 +123,18 @@ class ApiService {
     })
   }
 
+  async redeployWorker(runId, workerIndex) {
+    return this.request(`/runs/${runId}/workers/${workerIndex}/redeploy`, {
+      method: 'POST',
+    })
+  }
+
+  async startRunPartial(runId) {
+    return this.request(`/runs/${runId}/start-partial`, {
+      method: 'POST',
+    })
+  }
+
   // Stats
   async getStats() {
     return this.request('/stats')

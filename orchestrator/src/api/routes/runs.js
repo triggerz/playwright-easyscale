@@ -444,6 +444,105 @@ router.post('/:runId/summary', async (req, res) => {
 });
 
 /**
+ * POST /api/runs/:runId/workers/:workerIndex/redeploy
+ * Redeploy a specific worker
+ */
+router.post('/:runId/workers/:workerIndex/redeploy', async (req, res) => {
+  try {
+    const { runId, workerIndex } = req.params;
+    const index = parseInt(workerIndex);
+    
+    if (isNaN(index)) {
+      return res.status(400).json({
+        error: 'Bad request',
+        message: 'workerIndex must be a valid number'
+      });
+    }
+    
+    // Build Railway config
+    const railwayConfig = {
+      apiToken: process.env.RAILWAY_API_TOKEN,
+      projectId: process.env.RAILWAY_PROJECT_ID,
+      environmentId: process.env.RAILWAY_ENVIRONMENT_ID,
+      storage: {
+        endpoint: process.env.S3_ENDPOINT,
+        accessKey: process.env.S3_ACCESS_KEY,
+        secretKey: process.env.S3_SECRET_KEY,
+        bucket: process.env.S3_BUCKET,
+        region: process.env.S3_REGION || 'auto'
+      }
+    };
+    
+    const result = await runManager.redeployWorker(runId, index, railwayConfig);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error redeploying worker:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/runs/:runId/start-partial
+ * Start tests with only ready workers (don't wait for all)
+ */
+router.post('/:runId/start-partial', async (req, res) => {
+  try {
+    const { runId } = req.params;
+    
+    const run = await runManager.getRun(runId);
+    if (!run) {
+      return res.status(404).json({
+        error: 'Not found',
+        message: `Run ${runId} not found`
+      });
+    }
+    
+    // Get all workers
+    const workers = await runManager.getWorkers(runId);
+    const readyWorkers = workers.filter(w => w.state === 'ready');
+    
+    if (readyWorkers.length === 0) {
+      return res.status(400).json({
+        error: 'Bad request',
+        message: 'No workers are ready to start'
+      });
+    }
+    
+    // Send start command only to ready workers
+    for (const worker of readyWorkers) {
+      await runManager.updateWorkerStatus(runId, worker.index, {
+        ...worker,
+        command: 'start'
+      });
+    }
+    
+    await runManager.updateRunStatus(runId, 'running', {
+      startedAt: new Date().toISOString(),
+      partialStart: true,
+      readyWorkersCount: readyWorkers.length,
+      totalWorkersCount: workers.length
+    });
+    
+    res.json({ 
+      message: `Start signal sent to ${readyWorkers.length} ready workers (${workers.length - readyWorkers.length} workers not ready)`,
+      runId,
+      readyWorkers: readyWorkers.length,
+      totalWorkers: workers.length
+    });
+  } catch (error) {
+    console.error('Error starting run partially:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+/**
  * DELETE /api/runs/:runId
  * Delete run metadata (deprecated - use DELETE /api/runs/:runId/workers instead)
  */

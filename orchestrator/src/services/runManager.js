@@ -42,6 +42,7 @@ class RunManager {
    */
   async createRun(config) {
     const runId = `run-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+    const shortRunId = crypto.randomBytes(4).toString('hex'); // Short ID for worker names
     
     // Calculate distribution
     const distribution = calculateDistribution(config.totalUsers, config.usersPerContainer);
@@ -49,6 +50,7 @@ class RunManager {
     // Store run metadata with all test parameters
     const runMetadata = {
       id: runId,
+      shortRunId: shortRunId, // Store short ID for worker naming
       testFile: config.testFile,
       totalUsers: config.totalUsers,
       usersPerContainer: config.usersPerContainer,
@@ -123,7 +125,7 @@ class RunManager {
 
     for (const container of runMetadata.containers) {
       try {
-        const workerName = `worker-${runId}-${container.index}`;
+        const workerName = `worker-${container.index}-${runMetadata.shortRunId}`;
         
         // Generate environment variables for this container
         const baseEnv = generateContainerEnv(container, {
@@ -794,6 +796,102 @@ class RunManager {
     console.log(`Bulk delete completed: ${totalDeleted} total objects deleted`);
     
     return results;
+  }
+
+  /**
+   * Redeploy a specific worker
+   * @param {string} runId - Run identifier
+   * @param {number} workerIndex - Worker index to redeploy
+   * @param {Object} railwayConfig - Railway configuration
+   * @returns {Promise<Object>} Redeployment result
+   */
+  async redeployWorker(runId, workerIndex, railwayConfig) {
+    const run = await this.getRun(runId);
+    if (!run) {
+      throw new Error(`Run ${runId} not found`);
+    }
+
+    const workers = await this.getWorkers(runId);
+    const worker = workers.find(w => w.index === workerIndex);
+    if (!worker) {
+      throw new Error(`Worker ${workerIndex} not found for run ${runId}`);
+    }
+
+    const railway = new RailwayClient(railwayConfig.apiToken);
+    const container = run.containers.find(c => c.index === workerIndex);
+    if (!container) {
+      throw new Error(`Container configuration not found for worker ${workerIndex}`);
+    }
+
+    console.log(`Redeploying worker ${workerIndex} for run ${runId}...`);
+
+    // Try to delete the existing service (if it exists)
+    if (worker.serviceId) {
+      try {
+        console.log(`Attempting to delete existing service ${worker.serviceId}...`);
+        await railway.deleteService(worker.serviceId);
+        console.log(`Successfully deleted service ${worker.serviceId}`);
+      } catch (error) {
+        console.log(`Could not delete service ${worker.serviceId}: ${error.message} (may not exist, continuing...)`);
+      }
+    }
+
+    // Create new worker name (ensure shortRunId exists, fallback to extracting from runId)
+    const shortRunId = run.shortRunId || run.id.split('-').pop();
+    const workerName = `worker-${container.index}-${shortRunId}`;
+
+    // Generate environment variables for this container
+    const { generateContainerEnv } = require('../distributor');
+    const baseEnv = generateContainerEnv(container, {
+      storage: railwayConfig.storage,
+      testFile: run.testFile
+    }, runId);
+
+    // Convert to Railway variable format
+    const railwayVariables = {};
+    for (const [key, value] of Object.entries(baseEnv)) {
+      railwayVariables[key] = { value: String(value) };
+    }
+    
+    // Add additional required variables
+    railwayVariables.TEST_FILE = { value: run.testFile };
+    railwayVariables.RUN_ID = { value: runId };
+
+    // Spawn a new worker service
+    const workerService = await railway.spawnWorker(
+      railwayConfig.projectId,
+      railwayConfig.environmentId,
+      workerName,
+      railwayVariables
+    );
+
+    if (!workerService || !workerService.serviceId) {
+      throw new Error(`Worker service creation failed - no service ID returned for ${workerName}`);
+    }
+
+    console.log(`Worker ${workerName} redeployed successfully with service ID ${workerService.serviceId}`);
+
+    // Update worker status in S3
+    await this.updateWorkerStatus(runId, container.index, {
+      index: container.index,
+      startUser: container.startUser,
+      endUser: container.endUser,
+      userCount: container.userCount,
+      state: 'deploying',
+      command: null,
+      serviceId: workerService.serviceId,
+      serviceName: workerService.serviceName,
+      commitId: workerService.commitId,
+      redeployedAt: new Date().toISOString()
+    });
+
+    return {
+      workerIndex,
+      serviceId: workerService.serviceId,
+      serviceName: workerService.serviceName,
+      status: workerService.status,
+      message: `Worker ${workerIndex} redeployed successfully`
+    };
   }
 }
 

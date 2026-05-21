@@ -10,6 +10,9 @@ export default function WorkerDashboard({ runId }) {
   const [stoppingTests, setStoppingTests] = useState(false)
   const [resettingRun, setResettingRun] = useState(false)
   const [deletingWorkers, setDeletingWorkers] = useState(false)
+  const [redeployingWorker, setRedeployingWorker] = useState(null)
+  const [showPartialStartConfirm, setShowPartialStartConfirm] = useState(false)
+  const [recoveryMode, setRecoveryMode] = useState(false)
 
   useEffect(() => {
     loadWorkers()
@@ -95,11 +98,44 @@ export default function WorkerDashboard({ runId }) {
     }
   }
 
+  const handleRedeployWorker = async (workerIndex) => {
+    if (!confirm(`Are you sure you want to redeploy worker ${workerIndex}? This will delete and recreate the worker service.`)) {
+      return
+    }
+    
+    try {
+      setRedeployingWorker(workerIndex)
+      setError('')
+      await api.redeployWorker(runId, workerIndex)
+      await loadWorkers()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setRedeployingWorker(null)
+    }
+  }
+
+  const handleStartPartial = async () => {
+    try {
+      setStartingTests(true)
+      setError('')
+      const result = await api.startRunPartial(runId)
+      await loadWorkers()
+      setShowPartialStartConfirm(false)
+      setStartingTests(false)
+    } catch (err) {
+      setError(err.message)
+      setStartingTests(false)
+    }
+  }
+
   const allWorkersReady = workers.length > 0 && workers.every(w => w.state === 'ready')
   const anyWorkerTesting = workers.some(w => w.state === 'testing')
   const allWorkersFinished = workers.length > 0 && workers.every(w => ['finished', 'stopped'].includes(w.state))
   const canReset = workers.length > 0 && workers.some(w => w.state === 'stopped')
   const canDeleteWorkers = workers.length > 0 && !anyWorkerTesting
+  const someWorkersReady = workers.some(w => w.state === 'ready')
+  const readyWorkersCount = workers.filter(w => w.state === 'ready').length
 
   if (loading && workers.length === 0) {
     return (
@@ -119,9 +155,21 @@ export default function WorkerDashboard({ runId }) {
     <div className="bg-gray-800 rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">Worker Pool</h2>
-        <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-sm text-gray-400">Live</span>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setRecoveryMode(!recoveryMode)}
+            className={`px-3 py-1 rounded text-sm transition-colors ${
+              recoveryMode 
+                ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            }`}
+          >
+            {recoveryMode ? '🔧 Recovery Mode ON' : '🔧 Recovery Mode'}
+          </button>
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm text-gray-400">Live</span>
+          </div>
         </div>
       </div>
 
@@ -161,11 +209,35 @@ export default function WorkerDashboard({ runId }) {
                 </p>
                 
                 {(worker.passed !== undefined || worker.failed !== undefined) && (
-                  <div className="text-xs mt-auto">
+                  <div className="text-xs mb-2">
                     <span className="text-green-400">{worker.passed || 0} ✓</span>
                     {' / '}
                     <span className="text-red-400">{worker.failed || 0} ✗</span>
                   </div>
+                )}
+
+                {/* Redeploy button - only show in recovery mode and if worker is not testing */}
+                {recoveryMode && worker.state !== 'testing' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRedeployWorker(worker.index)
+                    }}
+                    disabled={redeployingWorker === worker.index}
+                    className="mt-auto px-2 py-1 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs rounded transition-colors flex items-center justify-center space-x-1"
+                  >
+                    {redeployingWorker === worker.index ? (
+                      <>
+                        <span className="animate-spin">⚙️</span>
+                        <span>Redeploying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>🔄</span>
+                        <span>Redeploy</span>
+                      </>
+                    )}
+                  </button>
                 )}
               </div>
             </div>
@@ -253,14 +325,31 @@ export default function WorkerDashboard({ runId }) {
           </div>
           
           {/* Status Messages */}
-          <div className="text-sm">
+          <div className="text-sm space-y-2">
             {allWorkersReady && !anyWorkerTesting && (
               <p className="text-green-400">
                 ✓ All workers ready! Click "Start Tests" to begin.
               </p>
             )}
             
-            {!allWorkersReady && !anyWorkerTesting && !allWorkersFinished && (
+            {!allWorkersReady && !anyWorkerTesting && !allWorkersFinished && someWorkersReady && (
+              <div className="flex items-center justify-between bg-orange-900/30 border border-orange-700 rounded p-2">
+                <p className="text-orange-400">
+                  ⏳ {readyWorkersCount}/{workers.length} workers ready. Some workers are not ready yet.
+                </p>
+                {recoveryMode && (
+                  <button
+                    onClick={() => setShowPartialStartConfirm(true)}
+                    disabled={startingTests}
+                    className="px-3 py-1 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded transition-colors"
+                  >
+                    Start Anyway
+                  </button>
+                )}
+              </div>
+            )}
+
+            {!allWorkersReady && !anyWorkerTesting && !allWorkersFinished && !someWorkersReady && (
               <p className="text-orange-400">
                 ⏳ Waiting for workers to be ready...
               </p>
@@ -313,6 +402,54 @@ export default function WorkerDashboard({ runId }) {
               {workers.filter(w => w.state === 'stopped').length}
             </p>
             <p className="text-xs text-gray-400">Stopped</p>
+          </div>
+        </div>
+      )}
+
+      {/* Partial Start Confirmation Modal */}
+      {showPartialStartConfirm && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold mb-4 text-orange-400">⚠️ Start with Partial Workers?</h3>
+            
+            <div className="mb-4 space-y-2">
+              <p className="text-gray-300">
+                Only {readyWorkersCount} out of {workers.length} workers are ready.
+              </p>
+              <p className="text-gray-400 text-sm">
+                Starting now will only run tests on the ready workers. The other workers will not participate in this test run.
+              </p>
+            </div>
+
+            <div className="bg-yellow-900/30 border border-yellow-700 rounded p-3 mb-4">
+              <p className="text-yellow-200 text-sm">
+                This may result in incomplete test coverage. Consider waiting for all workers or redeploying failed workers.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPartialStartConfirm(false)}
+                disabled={startingTests}
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStartPartial}
+                disabled={startingTests}
+                className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {startingTests ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Starting...
+                  </>
+                ) : (
+                  'Start Anyway'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
